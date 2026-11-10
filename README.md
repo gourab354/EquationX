@@ -1,6 +1,10 @@
 # EQUATIONX
 ### AI-Powered Equation Generator, Image-to-Equation Converter & Mathematical Graph Simulator
 
+<p align="center">
+  <img src="assets/preview.jpg" alt="EQUATIONX Preview" width="100%" style="border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.12);" />
+</p>
+
 **EQUATIONX** is a next-generation browser-based mathematical computing and visualization platform inspired by Desmos, featuring an **Image-to-Equation Conversion Pipeline**, a real-time **2D & 3D Graphing Calculator**, dynamic **Physics & Simulation Engine**, and an **AI Mathematical Assistant**.
 
 ---
