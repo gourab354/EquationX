@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Equation, SliderVar } from '../../types';
+import { GoogleUser } from '../../types/auth';
 import { MathFormula } from '../common/MathFormula';
 import { extractSliderVariables, cleanExpression } from '../../math/parser';
 import { generateEquationWithGemini } from '../../services/gemini';
+import { GoogleIcon } from '../auth/GoogleAuthModal';
 import {
   Bot,
   Sparkles,
@@ -21,12 +23,15 @@ import {
   ExternalLink,
   Settings,
   X,
-  AlertCircle
+  AlertCircle,
+  Lock
 } from 'lucide-react';
 
 interface AIAssistantWorkspaceProps {
   onAddEquationsToGraph: (equations: Equation[], sliders?: SliderVar[]) => void;
   onSwitchTo3D?: (expr: string) => void;
+  currentUser: GoogleUser | null;
+  onOpenAuth: () => void;
 }
 
 export interface AIResponse {
@@ -62,7 +67,7 @@ export const AI_KNOWLEDGE_BASE: Record<string, AIResponse> = {
       { variable: 'a', min: 1, max: 10, step: 0.2, value: 4, isPlaying: false, speed: 1, direction: 1 },
     ],
     explanation:
-      "Gabriel's Horn (Torricelli's Trumpet) was discovered in 1644 by Evangelista Torricelli. It is formed by revolving y = 1/x for x ≥ 1 around the axis. It exhibits the legendary 'Painter's Paradox': it has a strictly finite volume (V = π), yet an infinitely large surface area (A = ∞)! A finite bucket of paint (π cubic units) could fill the horn, but could never coat its inner surface!",
+      "Gabriel's Horn (Torricelli's Trumpet) was discovered in 1644 by Evangelista Torricelli. Formed by revolving y = 1/x for x ≥ 1 around the axis, it exhibits the famous 'Painter's Paradox': it has a finite volume (V = π), yet an infinite surface area (A = ∞)! A finite bucket of paint (π cubic units) could fill the horn, but could never coat its inner surface!",
     mathNotes: 'z(x, y) = \\frac{a}{\\sqrt{x^2 + y^2} + 0.2}, \\quad V = \\pi \\int_1^\\infty \\frac{1}{x^2}\\,dx = \\pi, \\quad A = 2\\pi \\int_1^\\infty \\frac{1}{x}\\sqrt{1 + \\frac{1}{x^4}}\\,dx = \\infty',
   },
   saddle: {
@@ -131,7 +136,7 @@ export const AI_KNOWLEDGE_BASE: Record<string, AIResponse> = {
       { variable: 'c', min: 0.5, max: 4, step: 0.2, value: 2, isPlaying: false, speed: 1, direction: 1 },
     ],
     explanation:
-      'The helicoid is a ruled minimal surface discovered by Jean Baptiste Meusnier in 1776. It forms a continuous spiral ramp winding around the z-axis. It is isometric to the catenoid through a continuous Bonnet deformation family.',
+      'The helicoid is a ruled minimal surface forming a continuous spiral ramp winding around the z-axis. It is isometric to the catenoid through a continuous Bonnet deformation family.',
     mathNotes: 'z(x, y) = c \\cdot \\text{atan2}(y, x), \\quad H = 0',
   },
   torus: {
@@ -207,75 +212,6 @@ export const AI_KNOWLEDGE_BASE: Record<string, AIResponse> = {
       'A 2D doubly-periodic wave surface resembling an egg carton tray or crystalline optical lattice in condensed matter physics, formed by the product of orthogonal sinusoids.',
     mathNotes: 'z(x, y) = A \\cdot \\sin(x) \\cos(y)',
   },
-  monkey: {
-    title: 'Monkey Saddle Surface',
-    mode: '3d',
-    tag: 'Monkey Saddle',
-    expression3D: '(x^3 - 3*x*y^2) / 10',
-    equations: [
-      {
-        id: 'ai-eq-monkey',
-        type: 'surface3d',
-        expression: '(x^3 - 3*x*y^2) / 10',
-        color: '#8b5cf6',
-        strokeWidth: 2,
-        visible: true,
-        opacity: 0.9,
-        label: 'Monkey Saddle',
-      },
-    ],
-    explanation:
-      'The monkey saddle is defined by the cubic equation z = x³ - 3xy² = Re((x + iy)³). Unlike an ordinary saddle for two legs, it features three distinct descending troughs: two for the monkey legs and one for its tail!',
-    mathNotes: 'z(x, y) = \\frac{x^3 - 3xy^2}{10} = \\frac{\\text{Re}\\left((x + iy)^3\\right)}{10}',
-  },
-  sphere: {
-    title: 'Spherical Hemisphere Surface',
-    mode: '3d',
-    tag: '3D Sphere',
-    expression3D: 'sqrt(max(0, 25 - x^2 - y^2))',
-    equations: [
-      {
-        id: 'ai-eq-sphere',
-        type: 'surface3d',
-        expression: 'sqrt(max(0, R^2 - x^2 - y^2))',
-        color: '#06b6d4',
-        strokeWidth: 2,
-        visible: true,
-        opacity: 0.9,
-        label: 'Spherical Dome',
-      },
-    ],
-    sliders: [
-      { variable: 'R', min: 2, max: 8, step: 0.2, value: 5, isPlaying: false, speed: 1, direction: 1 },
-    ],
-    explanation:
-      'Upper hemisphere of radius R centered at the origin, derived from the Euclidean 3D sphere equation x² + y² + z² = R².',
-    mathNotes: 'z(x, y) = \\sqrt{R^2 - x^2 - y^2}, \\quad x^2 + y^2 \\le R^2',
-  },
-  cone: {
-    title: 'Right Circular 3D Cone',
-    mode: '3d',
-    tag: 'Cone',
-    expression3D: 'sqrt(x^2 + y^2)',
-    equations: [
-      {
-        id: 'ai-eq-cone',
-        type: 'surface3d',
-        expression: 'm * sqrt(x^2 + y^2)',
-        color: '#f59e0b',
-        strokeWidth: 2,
-        visible: true,
-        opacity: 0.9,
-        label: 'Circular Cone',
-      },
-    ],
-    sliders: [
-      { variable: 'm', min: 0.2, max: 3, step: 0.1, value: 1, isPlaying: false, speed: 1, direction: 1 },
-    ],
-    explanation:
-      'Right circular cone with vertex at origin (0, 0, 0). The slope m controls the aperture angle of the cone.',
-    mathNotes: 'z(x, y) = m \\sqrt{x^2 + y^2}',
-  },
   volcano: {
     title: 'Caldera Crater & Volcanic Peak',
     mode: '3d',
@@ -324,55 +260,6 @@ export const AI_KNOWLEDGE_BASE: Record<string, AIResponse> = {
     explanation:
       'Radially symmetric 2D sinc function sinc(r) = sin(r)/r resembling a Mexican sombrero hat. Crucial in optics for circular aperture diffraction patterns.',
     mathNotes: 'z(x, y) = A \\cdot \\frac{\\sin(\\sqrt{x^2 + y^2})}{\\sqrt{x^2 + y^2}}',
-  },
-  paraboloid: {
-    title: 'Elliptic Paraboloid (Parabolic Bowl)',
-    mode: '3d',
-    tag: 'Paraboloid',
-    expression3D: '(x^2 + y^2) / a',
-    equations: [
-      {
-        id: 'ai-eq-paraboloid',
-        type: 'surface3d',
-        expression: '(x^2 + y^2) / a',
-        color: '#10b981',
-        strokeWidth: 2,
-        visible: true,
-        opacity: 0.9,
-        label: 'Parabolic Bowl',
-      },
-    ],
-    sliders: [
-      { variable: 'a', min: 1, max: 10, step: 0.2, value: 4, isPlaying: false, speed: 1, direction: 1 },
-    ],
-    explanation:
-      'An open bowl-shaped elliptic paraboloid. Used in telescope mirrors and satellite dishes due to its focal convergence property.',
-    mathNotes: 'z(x, y) = \\frac{x^2 + y^2}{a}',
-  },
-  ripple: {
-    title: '3D Bessel Circular Wave Ripple',
-    mode: '3d',
-    tag: '3D Ripple',
-    expression3D: '2.5 * sin(sqrt(x^2 + y^2) - t)',
-    equations: [
-      {
-        id: 'ai-eq-ripple',
-        type: 'surface3d',
-        expression: 'A * sin(sqrt(x^2 + y^2) - t)',
-        color: '#0c87eb',
-        strokeWidth: 2,
-        visible: true,
-        opacity: 0.95,
-        label: 'Circular Wave Ripple',
-      },
-    ],
-    sliders: [
-      { variable: 'A', min: 0.5, max: 5, step: 0.1, value: 2.5, isPlaying: false, speed: 1, direction: 1 },
-      { variable: 't', min: 0, max: 20, step: 0.1, value: 0, isPlaying: true, speed: 1, direction: 1 },
-    ],
-    explanation:
-      'Radially expanding harmonic wave on a 2D fluid surface governed by the 2D wave equation ∇²z = (1/c²)∂²z/∂t².',
-    mathNotes: 'z(x, y, t) = A \\cdot \\sin\\left(\\sqrt{x^2 + y^2} - t\\right)',
   },
   heart: {
     title: 'Cardioid Mathematical Heart Curve',
@@ -446,30 +333,6 @@ export const AI_KNOWLEDGE_BASE: Record<string, AIResponse> = {
       'Named rhodonea by Italian mathematician Guido Grandi in 1728. For integer k, r = a cos(kθ) generates a flower with k petals (if k is odd) or 2k petals (if k is even).',
     mathNotes: 'r(\\theta) = a \\cos(k\\theta)',
   },
-  spiral: {
-    title: 'Archimedean & Golden Logarithmic Spiral',
-    mode: '2d',
-    tag: 'Spiral',
-    equations: [
-      {
-        id: 'ai-spiral',
-        type: 'polar',
-        expression: 'a * theta',
-        domain: { min: 0, max: 8 * Math.PI, step: 0.05 },
-        color: '#0c87eb',
-        strokeWidth: 2.5,
-        visible: true,
-        opacity: 1,
-        label: 'Archimedean Spiral',
-      },
-    ],
-    sliders: [
-      { variable: 'a', min: 0.1, max: 2, step: 0.1, value: 0.5, isPlaying: false, speed: 1, direction: 1 },
-    ],
-    explanation:
-      'In an Archimedean spiral r = aθ, the radius increases at a constant linear rate with angular turn θ.',
-    mathNotes: 'r(\\theta) = a\\theta, \\quad \\Delta r = 2\\pi a',
-  },
   dna: {
     title: 'DNA Double Helix Parametric Curve',
     mode: '2d',
@@ -497,32 +360,12 @@ export const AI_KNOWLEDGE_BASE: Record<string, AIResponse> = {
         strokeWidth: 3,
         visible: true,
         opacity: 1,
-        label: 'DNA Strand B (Phase-Shifted)',
+        label: 'DNA Strand B',
       },
     ],
     explanation:
-      'Parametric projection of the Watson-Crick DNA double helix. Two antiparallel strands coiled around a common cylindrical axis with a relative phase shift of π radians.',
+      'Parametric projection of the Watson-Crick DNA double helix with two antiparallel strands coiled around a common axis.',
     mathNotes: 'x_1(t) = R\\cos(t), \\, y_1(t) = c t \\quad \\text{vs.} \\quad x_2(t) = R\\cos(t + \\pi), \\, y_2(t) = c t',
-  },
-  batman: {
-    title: 'Batman Algebraic Boundary Curve',
-    mode: '2d',
-    tag: 'Batman Curve',
-    equations: [
-      {
-        id: 'ai-bat-wings',
-        type: 'cartesian',
-        expression: 'y = 2*sqrt(-abs(abs(x)-1)*abs(3-abs(x))/((abs(x)-1)*(3-abs(x))))*(1+abs(abs(x)-3)/(abs(x)-3))*sqrt(1-(x/7)^2)+(5+0.97*(abs(x-0.5)+abs(x+0.5))-3*(abs(x-0.75)+abs(x+0.75)))*(1+abs(1-abs(x))/(1-abs(x)))',
-        color: '#0f172a',
-        strokeWidth: 3,
-        visible: true,
-        opacity: 1,
-        label: 'Batman Wings & Ears',
-      },
-    ],
-    explanation:
-      'The famous Batman Equation is an 11th-degree piecewise algebraic construction that plots the Batman superhero emblem.',
-    mathNotes: '\\text{Piecewise polynomial envelope recreating the iconic DC Batman emblem}',
   },
 };
 
@@ -655,21 +498,14 @@ export function interpretMathQueryLocal(queryText: string): AIResponse {
   if (lower.includes('blackhole') || lower.includes('black hole') || lower.includes('gravity') || lower.includes('spacetime')) return AI_KNOWLEDGE_BASE['blackhole'];
   if (lower.includes('egg') || lower.includes('carton') || lower.includes('lattice')) return AI_KNOWLEDGE_BASE['eggcarton'];
   if (lower.includes('saddle') && !lower.includes('monkey')) return AI_KNOWLEDGE_BASE['saddle'];
-  if (lower.includes('monkey')) return AI_KNOWLEDGE_BASE['monkey'];
-  if (lower.includes('sphere') || lower.includes('dome') || lower.includes('hemisphere')) return AI_KNOWLEDGE_BASE['sphere'];
-  if (lower.includes('cone') || lower.includes('funnel')) return AI_KNOWLEDGE_BASE['cone'];
   if (lower.includes('volcano') || lower.includes('caldera') || lower.includes('crater')) return AI_KNOWLEDGE_BASE['volcano'];
   if (lower.includes('sombrero') || lower.includes('sinc') || lower.includes('airy')) return AI_KNOWLEDGE_BASE['sombrero'];
-  if (lower.includes('paraboloid') || lower.includes('bowl')) return AI_KNOWLEDGE_BASE['paraboloid'];
-  if (lower.includes('ripple') || lower.includes('wave')) return AI_KNOWLEDGE_BASE['ripple'];
   if (lower.includes('rose') || lower.includes('flower') || lower.includes('petal')) return AI_KNOWLEDGE_BASE['rose'];
   if (lower.includes('dna') || lower.includes('double helix')) return AI_KNOWLEDGE_BASE['dna'];
   if (lower.includes('butter')) return AI_KNOWLEDGE_BASE['butterfly'];
-  if (lower.includes('spiral')) return AI_KNOWLEDGE_BASE['spiral'];
-  if (lower.includes('batman')) return AI_KNOWLEDGE_BASE['batman'];
   if (lower.includes('heart') || lower.includes('cardioid') || lower.includes('love')) return AI_KNOWLEDGE_BASE['heart'];
 
-  // 6. Dynamic Generative Synthesis for arbitrary requests (never default blindly!)
+  // 6. Dynamic Generative Synthesis for arbitrary requests
   const is3D = lower.includes('3d') || lower.includes('surface') || lower.includes('mesh');
   if (is3D) {
     const expr = '2 * sin(sqrt(x^2 + y^2)) * exp(-0.08 * (x^2 + y^2))';
@@ -721,6 +557,8 @@ export function interpretMathQueryLocal(queryText: string): AIResponse {
 export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
   onAddEquationsToGraph,
   onSwitchTo3D,
+  currentUser,
+  onOpenAuth,
 }) => {
   const [prompt, setPrompt] = useState('');
   const [activeResponse, setActiveResponse] = useState<AIResponse>(AI_KNOWLEDGE_BASE['gabriel']);
@@ -728,11 +566,6 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
   const [isThinking, setIsThinking] = useState(false);
   const [actionFeedback, setActionFeedback] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // Gemini API Key State
-  const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem('equationx_gemini_key') || '');
-  const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
-  const [tempKeyInput, setTempKeyInput] = useState('');
 
   const sampleQueries = [
     { label: "Gabriel's Horn 3D", query: "draw gabriell's funtion in the 3d" },
@@ -749,24 +582,31 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
     const query = textToRun.trim();
     if (!query) return;
 
+    // Requirement: User must be logged in with Google Account
+    if (!currentUser || !currentUser.isLoggedIn) {
+      onOpenAuth();
+      return;
+    }
+
     setIsThinking(true);
     setErrorMessage(null);
     setLastQuery(query);
 
-    // If user has saved a Gemini API Key, use LIVE Google Gemini AI!
-    if (apiKey.trim()) {
+    // If user has a linked Google Gemini API Key from their Google account, call Google Gemini AI!
+    const activeApiKey = currentUser.apiKey || localStorage.getItem('equationx_gemini_key');
+    if (activeApiKey && activeApiKey.trim()) {
       try {
-        const geminiResponse = await generateEquationWithGemini(query, apiKey.trim());
+        const geminiResponse = await generateEquationWithGemini(query, activeApiKey.trim());
         setActiveResponse(geminiResponse);
         setIsThinking(false);
         return;
       } catch (err: any) {
         console.warn('Gemini API call failed, falling back to local math engine:', err);
-        setErrorMessage(`Gemini API: ${err.message || 'Call failed'}. Switched to built-in mathematical engine.`);
+        setErrorMessage(`Gemini API from Google Account: ${err.message || 'Call failed'}. Switched to built-in mathematical engine.`);
       }
     }
 
-    // Otherwise use powerful local analytical math engine
+    // Otherwise use extensive built-in mathematical engine
     setTimeout(() => {
       const response = interpretMathQueryLocal(query);
       setActiveResponse(response);
@@ -786,16 +626,72 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
     setTimeout(() => setActionFeedback(false), 2000);
   };
 
-  const handleSaveApiKey = () => {
-    const trimmed = tempKeyInput.trim();
-    setApiKey(trimmed);
-    localStorage.setItem('equationx_gemini_key', trimmed);
-    setIsKeyModalOpen(false);
-  };
-
   return (
     <div className="w-full flex-1 overflow-y-auto p-4 md:p-8 space-y-6 max-w-5xl mx-auto custom-scrollbar math-notebook-bg">
-      {/* 1. MathRobo Mascot Hero Banner with Gemini API Status Pill */}
+      {/* Google Login Gate Banner if user is not logged in */}
+      {(!currentUser || !currentUser.isLoggedIn) ? (
+        <div className="bg-white border-2 border-slate-900 rounded-3xl p-6 md:p-7 shadow-[3px_4px_0px_#0f172a] flex flex-col sm:flex-row items-center justify-between gap-5 bg-gradient-to-r from-yellow-50/70 via-white to-amber-50/50">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-white border-2 border-slate-900 flex items-center justify-center shadow-[1px_2px_0px_#0f172a] flex-shrink-0">
+              <GoogleIcon className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-black text-slate-900 text-base">Google Account Required for AI Assistant</h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#FFE500] text-slate-950 border border-slate-900">
+                  LOGIN REQUIRED
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 font-medium mt-1">
+                Please sign in with your Google account to authorize MathRobo and use your Google account's Gemini API for generating mathematical equations.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={onOpenAuth}
+            className="px-6 py-3 rounded-2xl bg-white hover:bg-slate-50 border-2 border-slate-900 shadow-[2px_3px_0px_#0f172a] font-black text-xs text-slate-900 flex items-center gap-2.5 transition-all active:scale-95 cursor-pointer flex-shrink-0"
+          >
+            <GoogleIcon className="w-4 h-4" />
+            <span>Sign in with Google</span>
+          </button>
+        </div>
+      ) : (
+        /* Authenticated Status Banner */
+        <div className="p-4 rounded-2xl bg-white border-2 border-slate-900 shadow-[2px_3px_0px_#0f172a] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-3">
+            <img
+              src={currentUser.avatar}
+              alt={currentUser.name}
+              className="w-8 h-8 rounded-full border border-emerald-500 bg-white"
+            />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-black text-slate-900">{currentUser.name}</span>
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  Google Account Active
+                </span>
+              </div>
+              <span className="text-[11px] text-slate-500 font-medium">{currentUser.email}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+            <span className="text-[11px] font-mono font-bold text-emerald-700 flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+              <span>{currentUser.apiKey ? 'Gemini API Connected' : 'Google Authenticated'}</span>
+            </span>
+            <button
+              onClick={onOpenAuth}
+              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] border border-slate-300 transition-all cursor-pointer"
+            >
+              Account & Key
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 1. MathRobo Mascot Hero Banner */}
       <div className="bg-white border-2 border-slate-900 rounded-3xl p-6 md:p-8 shadow-[3px_4px_0px_#0f172a] flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
         <div className="space-y-3 z-10 text-center md:text-left">
           <div className="flex items-center gap-2 flex-wrap justify-center md:justify-start">
@@ -803,29 +699,13 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
               <Zap className="w-3.5 h-3.5" />
               <span>AI MATHROBO ASSISTANT</span>
             </div>
-
-            {/* Gemini Live AI Status Button */}
-            <button
-              onClick={() => {
-                setTempKeyInput(apiKey);
-                setIsKeyModalOpen(true);
-              }}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all active:scale-95 cursor-pointer ${
-                apiKey.trim()
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-400'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
-              }`}
-            >
-              <Key className="w-3 h-3 text-amber-500" />
-              <span>{apiKey.trim() ? 'Gemini AI: Connected' : 'Connect Gemini API Key'}</span>
-            </button>
           </div>
 
           <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
             I'm MathRobo
           </h1>
           <p className="text-sm md:text-base font-semibold text-slate-600 max-w-lg leading-relaxed">
-            and I will generate any mathematical equation for you! Ask for 3D surfaces (Gabriel's horn, black hole, helicoid, torus) or 2D curves, or connect your Google Gemini API key for open-ended AI creation!
+            and I will generate any mathematical equation for you! Ask for 3D surfaces (Gabriel's horn, black hole, helicoid, torus) or 2D curves, powered directly by Google Gemini AI!
           </p>
         </div>
 
@@ -982,7 +862,7 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
         )}
       </div>
 
-      {/* 4. Formulas Library Grid (Directly inspired by reference mobile UI) */}
+      {/* 4. Formulas Library Grid */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <Bot className="w-4 h-4 text-amber-500" />
@@ -1022,78 +902,6 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
           ))}
         </div>
       </div>
-
-      {/* 5. Gemini API Key Configuration Modal */}
-      {isKeyModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-slate-900 rounded-3xl p-6 md:p-7 max-w-lg w-full shadow-[4px_6px_0px_#0f172a] space-y-5 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-[#FFE500] border border-slate-900 flex items-center justify-center">
-                  <Key className="w-4 h-4 text-slate-950" />
-                </div>
-                <h3 className="font-black text-slate-900 text-lg">Connect Google Gemini API</h3>
-              </div>
-              <button
-                onClick={() => setIsKeyModalOpen(false)}
-                className="p-1 rounded-lg hover:bg-slate-100 text-slate-500"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              By connecting your free Google Gemini API key, MathRobo can synthesize authentic, rigorous mathematical equations for <strong>any natural language request imaginable</strong> (e.g. "draw a quantum wave packet", "plot a Klein bottle projection", "simulate relativistic gravitational lensing").
-            </p>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-800 flex items-center justify-between">
-                <span>Google Gemini API Key:</span>
-                <a
-                  href="https://aistudio.google.com/app/apikey"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-amber-600 hover:text-amber-700 text-[11px] font-bold flex items-center gap-1 underline"
-                >
-                  <span>Get free API key at Google AI Studio</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              </label>
-
-              <input
-                type="password"
-                value={tempKeyInput}
-                onChange={(e) => setTempKeyInput(e.target.value)}
-                placeholder="AIzaSy..."
-                className="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-300 rounded-2xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 font-mono shadow-inner"
-              />
-              <p className="text-[10px] text-slate-400">
-                Your key is stored securely in your browser's local storage and used directly from your browser.
-              </p>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                onClick={() => {
-                  setTempKeyInput('');
-                  setApiKey('');
-                  localStorage.removeItem('equationx_gemini_key');
-                  setIsKeyModalOpen(false);
-                }}
-                className="px-4 py-2 text-xs font-bold text-rose-600 hover:text-rose-700"
-              >
-                Clear Key
-              </button>
-              <button
-                onClick={handleSaveApiKey}
-                className="px-5 py-2.5 rounded-xl bg-[#FFE500] hover:bg-[#FFD600] text-slate-950 font-black text-xs border border-slate-900 shadow-[1px_2px_0px_#0f172a] active:scale-95 transition-all"
-              >
-                Save & Enable Gemini
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

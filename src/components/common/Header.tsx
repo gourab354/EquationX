@@ -1,4 +1,6 @@
 import React from 'react';
+import { GoogleUser } from '../../types/auth';
+import { GoogleIcon } from '../auth/GoogleAuthModal';
 import {
   Activity,
   Image as ImageIcon,
@@ -8,8 +10,8 @@ import {
   Sparkles,
   Download,
   RotateCcw,
-  Shapes,
-  Smile
+  User,
+  CheckCircle2
 } from 'lucide-react';
 
 export type ActiveTab = 'calculator' | 'image-to-equation' | 'simulator-3d' | 'ai-assistant' | 'docs';
@@ -21,6 +23,8 @@ interface HeaderProps {
   onOpenExport: () => void;
   onReset: () => void;
   equationCount: number;
+  currentUser: GoogleUser | null;
+  onOpenAuth: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -30,9 +34,11 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenExport,
   onReset,
   equationCount,
+  currentUser,
+  onOpenAuth,
 }) => {
   return (
-    <header className="h-16 border-b border-slate-200 bg-white sticky top-0 z-40 flex items-center justify-between px-4 sm:px-6 shadow-[0_2px_10px_rgba(0,0,0,0.03)]">
+    <header className="h-16 border-b border-slate-200 bg-white sticky top-0 z-40 flex items-center justify-between px-3 sm:px-6 shadow-[0_2px_10px_rgba(0,0,0,0.03)]">
       {/* Brand & MathRobo Inspiration */}
       <div className="flex items-center gap-3">
         <div
@@ -127,15 +133,15 @@ export const Header: React.FC<HeaderProps> = ({
         </nav>
       </div>
 
-      {/* Right Quick Actions */}
-      <div className="flex items-center gap-2.5">
+      {/* Right Quick Actions + Google Sign-In */}
+      <div className="flex items-center gap-2 sm:gap-2.5">
         <button
           onClick={onOpenPresets}
-          className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl bg-white hover:bg-yellow-50 text-slate-900 border border-slate-300 shadow-sm transition-all active:scale-95"
+          className="hidden sm:flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl bg-white hover:bg-yellow-50 text-slate-900 border border-slate-300 shadow-sm transition-all active:scale-95"
           title="Explore famous mathematical curve & simulation presets"
         >
           <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
-          <span className="hidden sm:inline">Presets</span>
+          <span>Presets</span>
         </button>
 
         <button
@@ -146,6 +152,34 @@ export const Header: React.FC<HeaderProps> = ({
           <Download className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Export</span>
         </button>
+
+        {/* Google User Authentication Status Pill */}
+        {currentUser && currentUser.isLoggedIn ? (
+          <button
+            onClick={onOpenAuth}
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 shadow-xs transition-all active:scale-95 cursor-pointer"
+            title={`Logged in as ${currentUser.name} (${currentUser.email})`}
+          >
+            <img
+              src={currentUser.avatar}
+              alt={currentUser.name}
+              className="w-6 h-6 rounded-full border border-emerald-400 bg-emerald-50"
+            />
+            <span className="font-bold text-xs text-slate-800 hidden md:inline truncate max-w-[100px]">
+              {currentUser.name}
+            </span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500" title="Google Gemini Connected" />
+          </button>
+        ) : (
+          <button
+            onClick={onOpenAuth}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 shadow-xs font-bold text-xs text-slate-700 hover:text-slate-950 transition-all active:scale-95 cursor-pointer"
+            title="Sign in with your Google Account"
+          >
+            <GoogleIcon className="w-4 h-4" />
+            <span className="hidden sm:inline">Sign in with Google</span>
+          </button>
+        )}
 
         <button
           onClick={onReset}

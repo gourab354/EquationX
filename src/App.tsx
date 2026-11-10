@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Equation, SliderVar, Viewport2D } from './types';
+import { GoogleUser } from './types/auth';
 import { Header, ActiveTab } from './components/common/Header';
 import { GraphCanvas2D } from './components/calculator/GraphCanvas2D';
 import { EquationEditor } from './components/calculator/EquationEditor';
@@ -9,6 +10,7 @@ import { AIAssistantWorkspace } from './components/aiAssistant/AIAssistantWorksp
 import { DocumentationWorkspace } from './components/docs/DocumentationWorkspace';
 import { PresetsModal } from './components/presets/PresetsModal';
 import { ExportModal } from './components/common/ExportModal';
+import { GoogleAuthModal } from './components/auth/GoogleAuthModal';
 import { PresetItem } from './math/presets';
 
 const INITIAL_EQUATIONS: Equation[] = [
@@ -57,6 +59,32 @@ export function App() {
   // Modals
   const [isPresetsOpen, setIsPresetsOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+
+  // Google User Authentication State
+  const [currentUser, setCurrentUser] = useState<GoogleUser | null>(() => {
+    const saved = localStorage.getItem('equationx_google_user');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {}
+    }
+    return null;
+  });
+
+  const handleLogin = (user: GoogleUser) => {
+    setCurrentUser(user);
+    localStorage.setItem('equationx_google_user', JSON.stringify(user));
+    if (user.apiKey) {
+      localStorage.setItem('equationx_gemini_key', user.apiKey);
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('equationx_google_user');
+    localStorage.removeItem('equationx_gemini_key');
+  };
 
   // Callback when ImageToEquation generates equations and user clicks "Plot in Calculator"
   const handleEquationsFromImage = (newEqs: Equation[], image?: HTMLImageElement) => {
@@ -140,6 +168,8 @@ export function App() {
         onOpenExport={() => setIsExportOpen(true)}
         onReset={handleResetWorkspace}
         equationCount={equations.length}
+        currentUser={currentUser}
+        onOpenAuth={() => setIsAuthOpen(true)}
       />
 
       {/* Main Workspace Body */}
@@ -182,7 +212,7 @@ export function App() {
                   </span>
                   <button
                     onClick={() => setOverlayImage(null)}
-                    className="ml-2 text-rose-600 hover:text-rose-700 font-mono text-[11px] font-bold"
+                    className="ml-2 text-rose-600 hover:text-rose-700 font-mono text-[11px] font-bold cursor-pointer"
                   >
                     Remove
                   </button>
@@ -213,12 +243,23 @@ export function App() {
               if (expr) setExpression3D(expr);
               setActiveTab('simulator-3d');
             }}
+            currentUser={currentUser}
+            onOpenAuth={() => setIsAuthOpen(true)}
           />
         )}
 
         {/* TAB 5: Documentation */}
         {activeTab === 'docs' && <DocumentationWorkspace />}
       </main>
+
+      {/* Google Authentication Modal */}
+      <GoogleAuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        currentUser={currentUser}
+        onLogin={handleLogin}
+        onLogout={handleLogout}
+      />
 
       {/* Presets Modal */}
       <PresetsModal
@@ -237,4 +278,3 @@ export function App() {
   );
 }
 export default App;
-
