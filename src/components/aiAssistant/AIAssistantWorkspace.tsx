@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Equation, SliderVar } from '../../types';
 import { MathFormula } from '../common/MathFormula';
 import { extractSliderVariables, cleanExpression } from '../../math/parser';
@@ -11,7 +11,10 @@ import {
   CheckCircle2,
   Cpu,
   Zap,
-  HelpCircle
+  User,
+  RotateCcw,
+  Box,
+  Activity
 } from 'lucide-react';
 
 interface AIAssistantWorkspaceProps {
@@ -19,7 +22,7 @@ interface AIAssistantWorkspaceProps {
   onSwitchTo3D?: (expr: string) => void;
 }
 
-interface AIResponse {
+export interface AIResponse {
   title: string;
   equations: Equation[];
   sliders?: SliderVar[];
@@ -30,7 +33,15 @@ interface AIResponse {
   expression3D?: string;
 }
 
-const AI_KNOWLEDGE_BASE: Record<string, AIResponse> = {
+interface ChatMessage {
+  id: string;
+  sender: 'user' | 'assistant';
+  timestamp: string;
+  text?: string;
+  response?: AIResponse;
+}
+
+export const AI_KNOWLEDGE_BASE: Record<string, AIResponse> = {
   gabriel: {
     title: "Gabriel's Horn (Torricelli's Trumpet)",
     mode: '3d',
@@ -52,7 +63,7 @@ const AI_KNOWLEDGE_BASE: Record<string, AIResponse> = {
       { variable: 'a', min: 1, max: 10, step: 0.2, value: 4, isPlaying: false, speed: 1, direction: 1 },
     ],
     explanation:
-      "Gabriel's Horn (also known as Torricelli's Trumpet) is a famous mathematical figure discovered by Evangelista Torricelli in 1644. It is formed by rotating the curve y = 1/x (for x ≥ 1) around the axis. It exhibits the renowned 'Painter's Paradox': it possesses a strictly finite volume (V = π), yet an infinitely large surface area (A = ∞)! This means the horn could hold a finite volume of paint (π cubic units), but its inner surface could never be completely coated by any finite amount of paint!",
+      "Gabriel's Horn (also known as Torricelli's Trumpet) is one of the most famous mathematical figures in history, discovered by Evangelista Torricelli in 1644. It is formed by rotating the curve y = 1/x (for x ≥ 1) around the axis. It exhibits the renowned 'Painter's Paradox': it possesses a strictly finite volume (V = π), yet an infinitely large surface area (A = ∞)! This means the trumpet could hold a finite bucket of paint (π cubic units), but its inner surface could never be completely coated by any finite amount of paint!",
     mathNotes: 'z(x, y) = \\frac{a}{\\sqrt{x^2 + y^2} + 0.2}, \\quad V = \\pi \\int_1^\\infty \\frac{1}{x^2}\\,dx = \\pi, \\quad A = 2\\pi \\int_1^\\infty \\frac{1}{x}\\sqrt{1 + \\frac{1}{x^4}}\\,dx = \\infty',
   },
   saddle: {
@@ -76,8 +87,29 @@ const AI_KNOWLEDGE_BASE: Record<string, AIResponse> = {
       { variable: 'a', min: 1, max: 8, step: 0.5, value: 3.5, isPlaying: false, speed: 1, direction: 1 },
     ],
     explanation:
-      'The hyperbolic paraboloid is a doubly-ruled quadric surface with opposite principal curvatures at the origin. In geometry and calculus, the origin (0, 0, 0) represents a classic critical saddle point where the gradient is zero (∇z = 0), yet the point is neither a local maximum nor a local minimum.',
+      'The hyperbolic paraboloid is a doubly-ruled quadric surface with opposite principal curvatures at the origin. In geometry and multivariable calculus, the origin (0, 0, 0) represents a classic critical saddle point where the gradient is zero (∇z = 0), yet the point is neither a local maximum nor a local minimum.',
     mathNotes: 'z = \\frac{x^2 - y^2}{a}, \\quad \\frac{\\partial^2 z}{\\partial x^2} > 0, \\quad \\frac{\\partial^2 z}{\\partial y^2} < 0',
+  },
+  catenoid: {
+    title: 'Catenoid Minimal Surface',
+    mode: '3d',
+    tag: 'Catenoid',
+    expression3D: 'cosh(sqrt(x^2 + y^2)/2.5) - 1',
+    equations: [
+      {
+        id: 'ai-eq-catenoid',
+        type: 'surface3d',
+        expression: 'cosh(sqrt(x^2 + y^2)/2.5) - 1',
+        color: '#f59e0b',
+        strokeWidth: 2,
+        visible: true,
+        opacity: 0.95,
+        label: 'Catenoid',
+      },
+    ],
+    explanation:
+      'The catenoid was discovered by Leonhard Euler in 1744. It is the only minimal surface of revolution in 3D Euclidean space other than the plane. It is naturally formed by dipping two parallel circular wire rings into soap solution, as surface tension minimizes the total surface area.',
+    mathNotes: 'z(x, y) = c \\cdot \\cosh\\left(\\frac{\\sqrt{x^2 + y^2}}{c}\\right) - c, \\quad H = 0 \\text{ (Mean Curvature)}',
   },
   monkey: {
     title: 'Monkey Saddle Surface',
@@ -142,7 +174,7 @@ const AI_KNOWLEDGE_BASE: Record<string, AIResponse> = {
       { variable: 'a', min: 1, max: 10, step: 0.2, value: 4, isPlaying: false, speed: 1, direction: 1 },
     ],
     explanation:
-      'An elliptic paraboloid shaped like an open cup or bowl. Cross sections parallel to the xy-plane form concentric ellipses or circles, while vertical cross sections parallel to the z-axis form parabolas. Used ubiquitously in satellite dish receivers and automobile headlamps due to its reflective focal convergence properties.',
+      'An elliptic paraboloid shaped like an open cup or bowl. Cross sections parallel to the xy-plane form concentric circles, while vertical cross sections form parabolas. Used in satellite dish receivers and telescope mirrors due to its reflective focal convergence.',
     mathNotes: 'z(x, y) = \\frac{x^2 + y^2}{a}',
   },
   cone: {
@@ -373,13 +405,13 @@ function interpretMathQuery(queryText: string): AIResponse {
   const text = queryText.trim();
   const lower = text.toLowerCase();
 
-  // 1. Check for Gabriel's Horn / Trumpet / function (including spelling variations like "gabriell", "gabriel's")
+  // 1. Gabriel's Horn / Trumpet / function (including spelling variations like "gabriell", "gabriel's", "trumpet", "horn")
   if (
     lower.includes('gabriel') ||
     lower.includes('gabriell') ||
     lower.includes('trumpet') ||
     lower.includes('torricelli') ||
-    (lower.includes('horn') && (lower.includes('3d') || lower.includes('surface') || lower.includes('function')))
+    (lower.includes('horn') && (lower.includes('3d') || lower.includes('surface') || lower.includes('function') || lower.includes('draw')))
   ) {
     return AI_KNOWLEDGE_BASE['gabriel'];
   }
@@ -493,6 +525,7 @@ function interpretMathQuery(queryText: string): AIResponse {
   }
 
   // 5. Semantic keyword classification across mathematical dictionary
+  if (lower.includes('catenoid')) return AI_KNOWLEDGE_BASE['catenoid'];
   if (lower.includes('saddle') && !lower.includes('monkey')) return AI_KNOWLEDGE_BASE['saddle'];
   if (lower.includes('monkey')) return AI_KNOWLEDGE_BASE['monkey'];
   if (lower.includes('sphere') || lower.includes('dome') || lower.includes('hemisphere')) return AI_KNOWLEDGE_BASE['sphere'];
@@ -508,7 +541,7 @@ function interpretMathQuery(queryText: string): AIResponse {
   if (lower.includes('batman') || lower.includes('bat logo')) return AI_KNOWLEDGE_BASE['batman'];
   if (lower.includes('heart') || lower.includes('cardioid') || lower.includes('love')) return AI_KNOWLEDGE_BASE['heart'];
 
-  // 6. Generic 3D request fallback: if user explicitly asked for "3d", provide an interactive 3D surface
+  // 6. Generic 3D request fallback: if user explicitly asked for "3d", provide an interactive 3D surface (Gabriel's horn)
   if (lower.includes('3d') || lower.includes('surface')) {
     return AI_KNOWLEDGE_BASE['gabriel'];
   }
@@ -522,45 +555,91 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
   onSwitchTo3D,
 }) => {
   const [prompt, setPrompt] = useState('');
-  const [currentResponse, setCurrentResponse] = useState<AIResponse | null>(
-    AI_KNOWLEDGE_BASE['gabriel']
-  );
-  const [addedSuccess, setAddedSuccess] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
+  const [activeLaunchedId, setActiveLaunchedId] = useState<string | null>(null);
+  const chatBottomRef = useRef<HTMLDivElement | null>(null);
+
+  // Conversation history: starts with friendly MathRobo greeting
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: 'msg-welcome',
+      sender: 'assistant',
+      timestamp: 'Just now',
+      text: "👋 Hello! I'm MathRobo, your AI mathematical copilot. Ask me to generate any 3D surface (e.g. Gabriel's horn, hyperbolic saddle, sphere, catenoid) or 2D curve, or type an equation like `z = 4/(sqrt(x^2+y^2)+0.2)`!",
+    },
+    {
+      id: 'msg-initial-gabriel',
+      sender: 'assistant',
+      timestamp: 'Just now',
+      response: AI_KNOWLEDGE_BASE['gabriel'],
+    },
+  ]);
 
   const sampleQueries = [
-    { label: "Draw Gabriel's Horn in 3D", query: "draw gabriel's horn in 3d" },
+    { label: "Draw Gabriel's Horn in 3D", query: "draw gabriell's funtion in the 3d" },
     { label: 'Hyperbolic Saddle surface', query: 'draw a saddle surface in 3d' },
     { label: 'Draw a heart shape', query: 'draw a heart shape' },
     { label: 'Temple Fay butterfly curve', query: 'draw a butterfly curve' },
     { label: '3D circular wave ripple', query: 'show me a 3d wave ripple' },
-    { label: 'Fourier square wave synthesis', query: 'fourier series square wave' },
+    { label: 'Catenoid minimal surface', query: 'draw a catenoid in 3d' },
   ];
 
-  const handleQuery = (queryText: string) => {
-    if (!queryText.trim()) return;
-    const response = interpretMathQuery(queryText);
-    setCurrentResponse(response);
-    setAddedSuccess(false);
+  const scrollToBottom = () => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleApplyToWorkspace = () => {
-    if (!currentResponse) return;
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isThinking]);
 
-    if (currentResponse.mode === '3d' && onSwitchTo3D) {
-      const expr = currentResponse.expression3D || currentResponse.equations[0]?.expression || '4 / (sqrt(x^2 + y^2) + 0.2)';
+  const handleSend = (queryText: string) => {
+    const text = queryText.trim();
+    if (!text) return;
+
+    // 1. Append User message immediately
+    const userMsg: ChatMessage = {
+      id: `user-${Date.now()}`,
+      sender: 'user',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      text,
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    setPrompt('');
+    setIsThinking(true);
+
+    // 2. Synthesize response with short organic thinking delay
+    setTimeout(() => {
+      const response = interpretMathQuery(text);
+      const assistantMsg: ChatMessage = {
+        id: `ai-${Date.now()}`,
+        sender: 'assistant',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        text: `I have analyzed your request "${text}" and synthesized the mathematical model for **${response.title}**!`,
+        response,
+      };
+
+      setMessages((prev) => [...prev, assistantMsg]);
+      setIsThinking(false);
+    }, 350);
+  };
+
+  const handleLaunch = (msgId: string, response: AIResponse) => {
+    if (response.mode === '3d' && onSwitchTo3D) {
+      const expr = response.expression3D || response.equations[0]?.expression || '4 / (sqrt(x^2 + y^2) + 0.2)';
       onSwitchTo3D(expr);
     } else {
-      onAddEquationsToGraph(currentResponse.equations, currentResponse.sliders);
+      onAddEquationsToGraph(response.equations, response.sliders);
     }
 
-    setAddedSuccess(true);
-    setTimeout(() => setAddedSuccess(false), 2500);
+    setActiveLaunchedId(msgId);
+    setTimeout(() => setActiveLaunchedId(null), 2500);
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-7 max-w-5xl mx-auto custom-scrollbar math-notebook-bg">
+    <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 max-w-5xl mx-auto custom-scrollbar math-notebook-bg flex flex-col h-full">
       {/* MathRobo Welcome Hero Card */}
-      <div className="bg-white border-2 border-slate-900 rounded-3xl p-6 md:p-8 shadow-[3px_4px_0px_#0f172a] flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+      <div className="bg-white border-2 border-slate-900 rounded-3xl p-6 md:p-8 shadow-[3px_4px_0px_#0f172a] flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden flex-shrink-0">
         <div className="space-y-3 z-10 text-center md:text-left">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FFE500] text-slate-950 font-black text-xs border border-slate-900 shadow-[1px_1px_0px_#0f172a]">
             <Zap className="w-3.5 h-3.5" />
@@ -571,17 +650,17 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
             I'm MathRobo
           </h1>
           <p className="text-base font-semibold text-slate-600 max-w-lg">
-            and I will help you with math! Ask me to generate any 3D surface (e.g. Gabriel's horn, saddle, sphere) or 2D curve.
+            and I will help you with math! Type any mathematical equation or name in the chat below.
           </p>
         </div>
 
-        {/* Cute MathRobo Visual Mascot with Pitch Yellow Blob */}
-        <div className="relative flex items-center justify-center">
-          <div className="w-36 h-36 rounded-full bg-[#FFE500] border-2 border-slate-900 shadow-[2px_3px_0px_#0f172a] flex items-center justify-center relative">
-            <div className="w-20 h-20 rounded-2xl bg-white border-2 border-slate-900 flex flex-col items-center justify-center shadow-md">
+        {/* MathRobo Mascot */}
+        <div className="relative flex items-center justify-center flex-shrink-0">
+          <div className="w-32 h-32 rounded-full bg-[#FFE500] border-2 border-slate-900 shadow-[2px_3px_0px_#0f172a] flex items-center justify-center relative">
+            <div className="w-18 h-18 p-3 rounded-2xl bg-white border-2 border-slate-900 flex flex-col items-center justify-center shadow-md">
               <div className="w-12 h-6 bg-slate-900 rounded-lg flex items-center justify-center gap-1.5 mb-1">
-                <span className="w-2 h-2 rounded-full bg-[#FFE500]" />
-                <span className="w-2 h-2 rounded-full bg-[#FFE500]" />
+                <span className="w-2 h-2 rounded-full bg-[#FFE500] animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-[#FFE500] animate-pulse" />
               </div>
               <span className="text-[10px] font-mono font-black text-slate-900">∑X</span>
             </div>
@@ -589,16 +668,146 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
         </div>
       </div>
 
-      {/* Natural Language Prompt Input */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-3">
+      {/* Interactive Chat Stream */}
+      <div className="space-y-4 flex-1">
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={`flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-200 ${
+              msg.sender === 'user' ? 'justify-end' : 'justify-start'
+            }`}
+          >
+            {/* Assistant Avatar */}
+            {msg.sender === 'assistant' && (
+              <div className="w-9 h-9 rounded-2xl bg-[#FFE500] border-2 border-slate-900 flex items-center justify-center shadow-[1px_2px_0px_#0f172a] flex-shrink-0 mt-1">
+                <Bot className="w-5 h-5 text-slate-950" />
+              </div>
+            )}
+
+            {/* Message Bubble Container */}
+            <div
+              className={`max-w-2xl rounded-3xl p-5 border-2 transition-all ${
+                msg.sender === 'user'
+                  ? 'bg-[#FFE500] border-slate-900 text-slate-950 shadow-[2px_3px_0px_#0f172a]'
+                  : 'bg-white border-slate-900 text-slate-900 shadow-[2px_3px_0px_#0f172a]'
+              }`}
+            >
+              {/* Header/Timestamp */}
+              <div className="flex items-center justify-between gap-3 mb-2 pb-2 border-b border-black/10 text-xs">
+                <span className="font-black text-xs flex items-center gap-1.5">
+                  {msg.sender === 'user' ? (
+                    <>
+                      <User className="w-3.5 h-3.5" />
+                      <span>You</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
+                      <span>MathRobo</span>
+                    </>
+                  )}
+                </span>
+                <span className="text-[10px] font-mono opacity-70">{msg.timestamp}</span>
+              </div>
+
+              {/* Text content if present */}
+              {msg.text && (
+                <p className="text-sm font-semibold leading-relaxed mb-3">
+                  {msg.text}
+                </p>
+              )}
+
+              {/* Synthesized Mathematical Response Card */}
+              {msg.response && (
+                <div className="space-y-4 mt-2">
+                  <div className="flex items-center justify-between gap-2 p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                    <div>
+                      <div className="font-black text-sm text-slate-900">{msg.response.title}</div>
+                      <div className="text-[11px] text-slate-500 font-medium">Ready for real-time visualization</div>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-black uppercase bg-[#FFE500] text-slate-950 border border-slate-900 shadow-[1px_1px_0px_#0f172a]">
+                      {msg.response.mode.toUpperCase()}
+                    </span>
+                  </div>
+
+                  {/* Mathematical Formulation Preview */}
+                  <div className="p-4 rounded-2xl bg-white border border-slate-200 space-y-1.5 shadow-inner">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">
+                      Mathematical Formulation:
+                    </span>
+                    <div className="text-sm text-slate-900 font-mono overflow-x-auto py-1">
+                      <MathFormula math={msg.response.mathNotes} block />
+                    </div>
+                  </div>
+
+                  {/* Derivation / Analytical Explanation */}
+                  <div className="text-xs text-slate-700 leading-relaxed bg-[#FFFDF0] p-4 rounded-2xl border border-yellow-200 font-medium">
+                    {msg.response.explanation}
+                  </div>
+
+                  {/* Action Launch Button */}
+                  <button
+                    onClick={() => handleLaunch(msg.id, msg.response!)}
+                    className={`w-full py-3 px-5 rounded-2xl font-black text-xs flex items-center justify-center gap-2 transition-all border-2 border-slate-900 shadow-[2px_2px_0px_#0f172a] active:scale-95 ${
+                      activeLaunchedId === msg.id
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-[#FFE500] hover:bg-[#FFD600] text-slate-950'
+                    }`}
+                  >
+                    {activeLaunchedId === msg.id ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Launched to {msg.response.mode === '3d' ? '3D Simulator' : '2D Calculator'}!</span>
+                      </>
+                    ) : (
+                      <>
+                        {msg.response.mode === '3d' ? <Box className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
+                        <span>Plot in {msg.response.mode === '3d' ? '3D Simulator' : '2D Calculator'}</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* User Avatar */}
+            {msg.sender === 'user' && (
+              <div className="w-9 h-9 rounded-2xl bg-slate-900 text-white flex items-center justify-center flex-shrink-0 mt-1 shadow-sm">
+                <User className="w-5 h-5 text-yellow-300" />
+              </div>
+            )}
+          </div>
+        ))}
+
+        {/* Thinking Indicator */}
+        {isThinking && (
+          <div className="flex gap-3 items-center text-xs font-bold text-slate-600 animate-pulse">
+            <div className="w-9 h-9 rounded-2xl bg-[#FFE500] border-2 border-slate-900 flex items-center justify-center shadow-[1px_2px_0px_#0f172a]">
+              <Bot className="w-5 h-5 text-slate-950" />
+            </div>
+            <div className="p-3.5 bg-white border border-slate-200 rounded-2xl shadow-sm flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-bounce" />
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-bounce delay-100" />
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-bounce delay-200" />
+              <span>MathRobo is computing mathematical formulation & derivations...</span>
+            </div>
+          </div>
+        )}
+
+        <div ref={chatBottomRef} />
+      </div>
+
+      {/* Sticky Bottom Prompt Input Bar */}
+      <div className="sticky bottom-0 bg-white border-2 border-slate-900 rounded-3xl p-4 shadow-[3px_4px_0px_#0f172a] space-y-3 z-30 flex-shrink-0">
         <div className="relative">
           <input
             type="text"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && prompt.trim()) {
-                handleQuery(prompt);
+              if (e.key === 'Enter') {
+                handleSend(prompt);
               }
             }}
             placeholder="Ask MathRobo: e.g. draw Gabriel's function in 3D, or plot a hyperbolic saddle..."
@@ -606,9 +815,7 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
           />
 
           <button
-            onClick={() => {
-              if (prompt.trim()) handleQuery(prompt);
-            }}
+            onClick={() => handleSend(prompt)}
             className="absolute right-2 top-2 px-4 py-2 rounded-xl bg-[#FFE500] hover:bg-[#FFD600] text-slate-950 font-black text-xs flex items-center gap-1.5 border border-slate-900 shadow-[1px_2px_0px_#0f172a] transition-all active:scale-95"
           >
             <span>Ask AI</span>
@@ -617,115 +824,17 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
         </div>
 
         {/* Suggestion Chips */}
-        <div className="flex items-center gap-2 flex-wrap pt-1 text-xs">
+        <div className="flex items-center gap-2 flex-wrap text-xs">
           <span className="text-slate-400 font-bold text-[11px] mr-1">Try asking:</span>
           {sampleQueries.map((q) => (
             <button
               key={q.label}
-              onClick={() => {
-                setPrompt(q.query);
-                handleQuery(q.query);
-              }}
+              onClick={() => handleSend(q.query)}
               className="px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-[#FFF9C4] text-slate-700 hover:text-slate-950 border border-slate-200 hover:border-yellow-400 text-[11px] font-bold transition-all shadow-sm"
             >
               {q.label}
             </button>
           ))}
-        </div>
-      </div>
-
-      {/* AI Synthesis Result Card */}
-      {currentResponse && (
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 md:p-7 shadow-sm space-y-5 animate-in fade-in duration-300">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-            <div>
-              <div className="flex items-center gap-2.5">
-                <Sparkles className="w-5 h-5 text-amber-500 fill-amber-400" />
-                <h3 className="font-black text-slate-900 text-lg">{currentResponse.title}</h3>
-                <span className="px-3 py-0.5 rounded-full text-[10px] font-mono font-black uppercase bg-[#FFE500] text-slate-950 border border-slate-900 shadow-[1px_1px_0px_#0f172a]">
-                  {currentResponse.mode.toUpperCase()}
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 font-medium mt-1">
-                Generated equations and analytical derivation ready for simulation.
-              </p>
-            </div>
-
-            <button
-              onClick={handleApplyToWorkspace}
-              className={`px-5 py-2.5 rounded-2xl font-black text-xs flex items-center gap-2 transition-all border border-slate-900 shadow-[1px_2px_0px_#0f172a] active:scale-95 ${
-                addedSuccess
-                  ? 'bg-emerald-500 text-white'
-                  : 'bg-[#FFE500] hover:bg-[#FFD600] text-slate-950'
-              }`}
-            >
-              {addedSuccess ? (
-                <>
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Added to Workspace!</span>
-                </>
-              ) : (
-                <>
-                  <span>Plot in {currentResponse.mode === '3d' ? '3D Simulator' : '2D Calculator'}</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Mathematical Formula Preview */}
-          <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-500">
-              Mathematical Formulation:
-            </span>
-            <div className="text-base text-slate-900 font-mono overflow-x-auto py-1">
-              <MathFormula math={currentResponse.mathNotes} block />
-            </div>
-          </div>
-
-          {/* Mathematical Derivation & Explanation */}
-          <div className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-amber-500" />
-              Mathematical Derivation & Analytical Insights
-            </span>
-            <div className="text-xs text-slate-600 leading-relaxed bg-[#FFFDF0] p-4 rounded-2xl border border-yellow-200 font-medium">
-              {currentResponse.explanation}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Image-to-Equation Scientific Explainer Section */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
-        <div className="flex items-center gap-2">
-          <Cpu className="w-4 h-4 text-amber-500" />
-          <h3 className="font-black text-slate-900 text-sm uppercase tracking-wider">
-            How EQUATIONX Converts Images into Equations
-          </h3>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5">
-            <div className="font-extrabold text-slate-900">1. Spatial Gradients & Contours</div>
-            <p className="text-slate-600 leading-relaxed text-[11px] font-medium">
-              Applies Sobel gradient kernels to detect boundary edge pixels, followed by Moore-neighbor boundary tracing to form continuous loops.
-            </p>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5">
-            <div className="font-extrabold text-slate-900">2. Douglas-Peucker Simplification</div>
-            <p className="text-slate-600 leading-relaxed text-[11px] font-medium">
-              Recursive divide-and-conquer algorithm that eliminates noise vertices within perpendicular distance tolerance ε, yielding clean wireframes.
-            </p>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5">
-            <div className="font-extrabold text-slate-900">3. Discrete Fourier Epicycles</div>
-            <p className="text-slate-600 leading-relaxed text-[11px] font-medium">
-              Computes exact Fourier coefficients a_k, b_k for coordinate functions x(t), y(t) to recreate the entire silhouette using rotating harmonic circles!
-            </p>
-          </div>
         </div>
       </div>
     </div>
