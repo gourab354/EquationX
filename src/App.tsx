@@ -48,6 +48,7 @@ export function App() {
   const [equations, setEquations] = useState<Equation[]>(INITIAL_EQUATIONS);
   const [sliders, setSliders] = useState<SliderVar[]>([]);
   const [viewport, setViewport] = useState<Viewport2D>(INITIAL_VIEWPORT);
+  const [expression3D, setExpression3D] = useState<string>('2.5 * sin(sqrt(x^2 + y^2) - t)');
 
   // Overlay image for Image-to-Equation comparison on graph
   const [overlayImage, setOverlayImage] = useState<HTMLImageElement | null>(null);
@@ -81,6 +82,9 @@ export function App() {
 
   const handleSelectPreset = (preset: PresetItem) => {
     if (preset.mode === '3d') {
+      if (preset.equations[0]?.expression) {
+        setExpression3D(preset.equations[0].expression);
+      }
       setActiveTab('simulator-3d');
       return;
     }
@@ -197,13 +201,18 @@ export function App() {
         )}
 
         {/* TAB 3: 3D Simulator (Module 4) */}
-        {activeTab === 'simulator-3d' && <Simulator3DWorkspace />}
+        {activeTab === 'simulator-3d' && (
+          <Simulator3DWorkspace initialExpression={expression3D} />
+        )}
 
         {/* TAB 4: AI Math Assistant (Module 5) */}
         {activeTab === 'ai-assistant' && (
           <AIAssistantWorkspace
             onAddEquationsToGraph={handleEquationsFromAI}
-            onSwitchTo3D={() => setActiveTab('simulator-3d')}
+            onSwitchTo3D={(expr) => {
+              if (expr) setExpression3D(expr);
+              setActiveTab('simulator-3d');
+            }}
           />
         )}
 

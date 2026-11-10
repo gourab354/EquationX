@@ -1,11 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GraphCanvas3D } from './GraphCanvas3D';
 import { SliderControl } from '../calculator/SliderControl';
 import { SliderVar } from '../../types';
+import { extractSliderVariables } from '../../math/parser';
 import { Box, Sliders, Layers, Sparkles, RotateCcw, Palette, Compass } from 'lucide-react';
 
-export const Simulator3DWorkspace: React.FC = () => {
-  const [expression, setExpression] = useState<string>('2.5 * sin(sqrt(x^2 + y^2) - t)');
+interface Simulator3DWorkspaceProps {
+  initialExpression?: string;
+}
+
+export const Simulator3DWorkspace: React.FC<Simulator3DWorkspaceProps> = ({
+  initialExpression,
+}) => {
+  const [expression, setExpression] = useState<string>(
+    initialExpression || '2.5 * sin(sqrt(x^2 + y^2) - t)'
+  );
   const [mode, setMode] = useState<'surface' | 'curve'>('surface');
   const [colormap, setColormap] = useState<'viridis' | 'cyan-purple' | 'sunset' | 'emerald'>('viridis');
   const [isWireframe, setIsWireframe] = useState<boolean>(false);
@@ -34,12 +43,49 @@ export const Simulator3DWorkspace: React.FC = () => {
     },
   ]);
 
+  // Sync initialExpression if changed from outside (e.g. AI Assistant or Presets)
+  useEffect(() => {
+    if (initialExpression && initialExpression.trim()) {
+      setExpression(initialExpression.trim());
+      syncSlidersForExpr(initialExpression.trim());
+    }
+  }, [initialExpression]);
+
+  // Sync sliders with detected variables in 3D expression
+  const syncSlidersForExpr = (expr: string) => {
+    const detected = extractSliderVariables(expr).filter((v) => v !== 'x' && v !== 'y' && v !== 'z');
+    const existing = new Set(sliders.map((s) => s.variable));
+    const nextSliders = [...sliders];
+
+    detected.forEach((v) => {
+      if (!existing.has(v)) {
+        nextSliders.push({
+          variable: v,
+          min: 1,
+          max: 10,
+          step: 0.1,
+          value: 4,
+          isPlaying: v === 't',
+          speed: 1,
+          direction: 1,
+        });
+      }
+    });
+
+    setSliders(nextSliders);
+  };
+
   const sliderScope: Record<string, number> = {};
   for (const s of sliders) {
     sliderScope[s.variable] = s.value;
   }
 
   const PRESET_SURFACES = [
+    {
+      name: "Gabriel's Horn (Trumpet)",
+      expr: '4 / (sqrt(x^2 + y^2) + 0.2)',
+      desc: 'Torricelli trumpet with finite volume & infinite area',
+    },
     {
       name: 'Circular Wave Ripple',
       expr: '2.5 * sin(sqrt(x^2 + y^2) - t)',
@@ -109,7 +155,10 @@ export const Simulator3DWorkspace: React.FC = () => {
             <input
               type="text"
               value={expression}
-              onChange={(e) => setExpression(e.target.value)}
+              onChange={(e) => {
+                setExpression(e.target.value);
+                syncSlidersForExpr(e.target.value);
+              }}
               className="w-full pl-9 pr-3 py-2 text-sm font-mono bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 shadow-sm font-medium"
             />
           </div>
@@ -215,7 +264,10 @@ export const Simulator3DWorkspace: React.FC = () => {
             {PRESET_SURFACES.map((preset) => (
               <button
                 key={preset.name}
-                onClick={() => setExpression(preset.expr)}
+                onClick={() => {
+                  setExpression(preset.expr);
+                  syncSlidersForExpr(preset.expr);
+                }}
                 className="w-full p-3 rounded-2xl bg-white hover:bg-yellow-50 border border-slate-200 hover:border-yellow-400 text-left transition-all shadow-sm group"
               >
                 <div className="font-bold text-xs text-slate-800 group-hover:text-slate-950">

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Equation, SliderVar } from '../../types';
 import { MathFormula } from '../common/MathFormula';
+import { extractSliderVariables, cleanExpression } from '../../math/parser';
 import {
   Bot,
   Sparkles,
@@ -9,9 +10,8 @@ import {
   BookOpen,
   CheckCircle2,
   Cpu,
-  Layers,
-  Smile,
-  Zap
+  Zap,
+  HelpCircle
 } from 'lucide-react';
 
 interface AIAssistantWorkspaceProps {
@@ -27,9 +27,235 @@ interface AIResponse {
   mathNotes: string;
   mode: '2d' | '3d';
   tag?: string;
+  expression3D?: string;
 }
 
 const AI_KNOWLEDGE_BASE: Record<string, AIResponse> = {
+  gabriel: {
+    title: "Gabriel's Horn (Torricelli's Trumpet)",
+    mode: '3d',
+    tag: "Gabriel's Horn",
+    expression3D: '4 / (sqrt(x^2 + y^2) + 0.2)',
+    equations: [
+      {
+        id: 'ai-eq-gabriel',
+        type: 'surface3d',
+        expression: 'a / (sqrt(x^2 + y^2) + 0.2)',
+        color: '#eab308',
+        strokeWidth: 2,
+        visible: true,
+        opacity: 0.95,
+        label: "Gabriel's Horn",
+      },
+    ],
+    sliders: [
+      { variable: 'a', min: 1, max: 10, step: 0.2, value: 4, isPlaying: false, speed: 1, direction: 1 },
+    ],
+    explanation:
+      "Gabriel's Horn (also known as Torricelli's Trumpet) is a famous mathematical figure discovered by Evangelista Torricelli in 1644. It is formed by rotating the curve y = 1/x (for x ≥ 1) around the axis. It exhibits the renowned 'Painter's Paradox': it possesses a strictly finite volume (V = π), yet an infinitely large surface area (A = ∞)! This means the horn could hold a finite volume of paint (π cubic units), but its inner surface could never be completely coated by any finite amount of paint!",
+    mathNotes: 'z(x, y) = \\frac{a}{\\sqrt{x^2 + y^2} + 0.2}, \\quad V = \\pi \\int_1^\\infty \\frac{1}{x^2}\\,dx = \\pi, \\quad A = 2\\pi \\int_1^\\infty \\frac{1}{x}\\sqrt{1 + \\frac{1}{x^4}}\\,dx = \\infty',
+  },
+  saddle: {
+    title: 'Hyperbolic Paraboloid (Saddle Surface)',
+    mode: '3d',
+    tag: 'Saddle Surface',
+    expression3D: '(x^2 - y^2) / a',
+    equations: [
+      {
+        id: 'ai-eq-saddle',
+        type: 'surface3d',
+        expression: '(x^2 - y^2) / a',
+        color: '#0c87eb',
+        strokeWidth: 2,
+        visible: true,
+        opacity: 0.9,
+        label: 'Saddle Surface',
+      },
+    ],
+    sliders: [
+      { variable: 'a', min: 1, max: 8, step: 0.5, value: 3.5, isPlaying: false, speed: 1, direction: 1 },
+    ],
+    explanation:
+      'The hyperbolic paraboloid is a doubly-ruled quadric surface with opposite principal curvatures at the origin. In geometry and calculus, the origin (0, 0, 0) represents a classic critical saddle point where the gradient is zero (∇z = 0), yet the point is neither a local maximum nor a local minimum.',
+    mathNotes: 'z = \\frac{x^2 - y^2}{a}, \\quad \\frac{\\partial^2 z}{\\partial x^2} > 0, \\quad \\frac{\\partial^2 z}{\\partial y^2} < 0',
+  },
+  monkey: {
+    title: 'Monkey Saddle Surface',
+    mode: '3d',
+    tag: 'Monkey Saddle',
+    expression3D: '(x^3 - 3*x*y^2) / 10',
+    equations: [
+      {
+        id: 'ai-eq-monkey',
+        type: 'surface3d',
+        expression: '(x^3 - 3*x*y^2) / 10',
+        color: '#8b5cf6',
+        strokeWidth: 2,
+        visible: true,
+        opacity: 0.9,
+        label: 'Monkey Saddle',
+      },
+    ],
+    explanation:
+      'The monkey saddle is defined by the cubic equation z = x³ - 3xy² = Re((x + iy)³). Unlike an ordinary saddle designed for two human legs, a monkey saddle possesses three distinct depressions descending from the stationary point at the origin: two for the monkey legs and one for its tail!',
+    mathNotes: 'z(x, y) = \\frac{x^3 - 3xy^2}{10} = \\frac{\\text{Re}\\left((x + iy)^3\\right)}{10}',
+  },
+  sphere: {
+    title: 'Spherical Hemisphere Surface',
+    mode: '3d',
+    tag: '3D Sphere',
+    expression3D: 'sqrt(max(0, 25 - x^2 - y^2))',
+    equations: [
+      {
+        id: 'ai-eq-sphere',
+        type: 'surface3d',
+        expression: 'sqrt(max(0, 25 - x^2 - y^2))',
+        color: '#06b6d4',
+        strokeWidth: 2,
+        visible: true,
+        opacity: 0.9,
+        label: 'Spherical Dome',
+      },
+    ],
+    explanation:
+      'The upper hemisphere of a sphere of radius R = 5 centered at the origin, derived from the Euclidean 3D sphere equation x² + y² + z² = R². The max(0, ...) guard restricts real evaluation strictly within the equatorial disc x² + y² ≤ 25.',
+    mathNotes: 'z(x, y) = \\sqrt{R^2 - x^2 - y^2}, \\quad x^2 + y^2 \\le R^2',
+  },
+  paraboloid: {
+    title: 'Elliptic Paraboloid (Parabolic Bowl)',
+    mode: '3d',
+    tag: 'Paraboloid',
+    expression3D: '(x^2 + y^2) / a',
+    equations: [
+      {
+        id: 'ai-eq-paraboloid',
+        type: 'surface3d',
+        expression: '(x^2 + y^2) / a',
+        color: '#10b981',
+        strokeWidth: 2,
+        visible: true,
+        opacity: 0.9,
+        label: 'Parabolic Bowl',
+      },
+    ],
+    sliders: [
+      { variable: 'a', min: 1, max: 10, step: 0.2, value: 4, isPlaying: false, speed: 1, direction: 1 },
+    ],
+    explanation:
+      'An elliptic paraboloid shaped like an open cup or bowl. Cross sections parallel to the xy-plane form concentric ellipses or circles, while vertical cross sections parallel to the z-axis form parabolas. Used ubiquitously in satellite dish receivers and automobile headlamps due to its reflective focal convergence properties.',
+    mathNotes: 'z(x, y) = \\frac{x^2 + y^2}{a}',
+  },
+  cone: {
+    title: 'Right Circular 3D Cone',
+    mode: '3d',
+    tag: '3D Cone',
+    expression3D: 'sqrt(x^2 + y^2)',
+    equations: [
+      {
+        id: 'ai-eq-cone',
+        type: 'surface3d',
+        expression: 'sqrt(x^2 + y^2)',
+        color: '#f59e0b',
+        strokeWidth: 2,
+        visible: true,
+        opacity: 0.9,
+        label: 'Circular Cone',
+      },
+    ],
+    explanation:
+      'The upper nappe of a right circular cone with apex at origin (0, 0, 0). The height z equals the Euclidean radius r = √(x² + y²), creating an exact 45° slope relative to the horizontal base plane.',
+    mathNotes: 'z(x, y) = \\sqrt{x^2 + y^2}',
+  },
+  gaussian: {
+    title: '2D Bivariate Gaussian Bell Surface',
+    mode: '3d',
+    tag: 'Gaussian Bell',
+    expression3D: '5 * exp(-0.2 * (x^2 + y^2))',
+    equations: [
+      {
+        id: 'ai-eq-gaussian',
+        type: 'surface3d',
+        expression: 'A * exp(-k * (x^2 + y^2))',
+        color: '#ec4899',
+        strokeWidth: 2,
+        visible: true,
+        opacity: 0.9,
+        label: 'Gaussian Bell',
+      },
+    ],
+    sliders: [
+      { variable: 'A', min: 1, max: 10, step: 0.5, value: 5, isPlaying: false, speed: 1, direction: 1 },
+      { variable: 'k', min: 0.05, max: 0.8, step: 0.05, value: 0.2, isPlaying: false, speed: 1, direction: 1 },
+    ],
+    explanation:
+      'The 2D Gaussian probability density function (bell surface) describing isotropic normal distributions in statistics, quantum mechanical harmonic ground states, and diffusion heat equations.',
+    mathNotes: 'z(x, y) = A \\cdot \\exp\\left(-k(x^2 + y^2)\\right)',
+  },
+  sombrero: {
+    title: 'Sombrero (Bivariate 2D Sinc Wave)',
+    mode: '3d',
+    tag: 'Sombrero Sinc',
+    expression3D: '5 * sin(sqrt(x^2 + y^2) + 0.001) / (sqrt(x^2 + y^2) + 0.001)',
+    equations: [
+      {
+        id: 'ai-eq-sombrero',
+        type: 'surface3d',
+        expression: '5 * sin(sqrt(x^2 + y^2) + 0.001) / (sqrt(x^2 + y^2) + 0.001)',
+        color: '#0c87eb',
+        strokeWidth: 2,
+        visible: true,
+        opacity: 0.9,
+        label: 'Sombrero Hat',
+      },
+    ],
+    explanation:
+      'A radially symmetric 2D sinc function sinc(r) = sin(r)/r resembling a Mexican sombrero hat. Fundamental in optics and signal processing for Airy disc diffraction patterns and Fourier optical transfers.',
+    mathNotes: 'z(x, y) = A \\cdot \\frac{\\sin\\left(\\sqrt{x^2 + y^2}\\right)}{\\sqrt{x^2 + y^2}}',
+  },
+  ripple: {
+    title: '3D Bessel Circular Wave Ripple',
+    mode: '3d',
+    tag: '3D Ripple',
+    expression3D: '2.5 * sin(sqrt(x^2 + y^2) - t)',
+    equations: [
+      {
+        id: 'ai-eq-3d-ripple',
+        type: 'surface3d',
+        expression: '2.5 * sin(sqrt(x^2 + y^2) - t)',
+        color: '#0c87eb',
+        strokeWidth: 2,
+        visible: true,
+        opacity: 0.9,
+      },
+    ],
+    sliders: [
+      { variable: 't', min: 0, max: 20, step: 0.1, value: 0, isPlaying: true, speed: 1, direction: 1 },
+    ],
+    explanation:
+      'Represents a 2D radial wave propagating outward from the origin with time parameter t. The argument √(x² + y²) represents the Euclidean distance from origin, producing concentric circular wavefronts.',
+    mathNotes: 'z(x, y, t) = A \\cdot \\sin\\left(\\sqrt{x^2 + y^2} - t\\right)',
+  },
+  torus: {
+    title: '3D Torus Surface (Donut)',
+    mode: '3d',
+    tag: '3D Torus',
+    expression3D: 'sqrt(max(0, 4 - (4 - sqrt(x^2 + y^2))^2))',
+    equations: [
+      {
+        id: 'ai-eq-torus',
+        type: 'surface3d',
+        expression: 'sqrt(max(0, 4 - (4 - sqrt(x^2 + y^2))^2))',
+        color: '#f59e0b',
+        strokeWidth: 2,
+        visible: true,
+        opacity: 0.95,
+        label: 'Torus Ring',
+      },
+    ],
+    explanation:
+      'A torus of major radius R = 4 and minor tube radius r = 2, generated by revolving a circle in three-dimensional space about a coplanar axis.',
+    mathNotes: '\\left(R - \\sqrt{x^2 + y^2}\\right)^2 + z^2 = r^2 \\implies z = \\pm\\sqrt{r^2 - \\left(R - \\sqrt{x^2 + y^2}\\right)^2}',
+  },
   heart: {
     title: 'Cardioid-Derived Parametric Heart Curve',
     mode: '2d',
@@ -98,28 +324,6 @@ const AI_KNOWLEDGE_BASE: Record<string, AIResponse> = {
       'A self-similar logarithmic spiral where the angle between the tangent and radial line is constant (equiangular). Appears abundantly in nature: nautilus shells, tropical cyclones, and spiral galaxies.',
     mathNotes: 'r(\\theta) = a \\cdot e^{b \\theta}',
   },
-  ripple: {
-    title: '3D Bessel Circular Wave Ripple',
-    mode: '3d',
-    tag: '3D Ripple',
-    equations: [
-      {
-        id: 'ai-eq-3d-ripple',
-        type: 'surface3d',
-        expression: '2.5 * sin(sqrt(x^2 + y^2) - t)',
-        color: '#0c87eb',
-        strokeWidth: 2,
-        visible: true,
-        opacity: 0.9,
-      },
-    ],
-    sliders: [
-      { variable: 't', min: 0, max: 20, step: 0.1, value: 0, isPlaying: true, speed: 1, direction: 1 },
-    ],
-    explanation:
-      'Represents a 2D radial wave propagating outward from the origin with time parameter t. The argument √(x² + y²) represents the Euclidean distance from origin, producing concentric circular wavefronts.',
-    mathNotes: 'z(x, y, t) = A \\cdot \\sin\\left(\\sqrt{x^2 + y^2} - t\\right)',
-  },
   fourier: {
     title: 'Fourier Series Square Wave Synthesis',
     mode: '2d',
@@ -162,36 +366,180 @@ const AI_KNOWLEDGE_BASE: Record<string, AIResponse> = {
   },
 };
 
+/**
+ * Intelligent NLP & mathematical query generator
+ */
+function interpretMathQuery(queryText: string): AIResponse {
+  const text = queryText.trim();
+  const lower = text.toLowerCase();
+
+  // 1. Check for Gabriel's Horn / Trumpet / function (including spelling variations like "gabriell", "gabriel's")
+  if (
+    lower.includes('gabriel') ||
+    lower.includes('gabriell') ||
+    lower.includes('trumpet') ||
+    lower.includes('torricelli') ||
+    (lower.includes('horn') && (lower.includes('3d') || lower.includes('surface') || lower.includes('function')))
+  ) {
+    return AI_KNOWLEDGE_BASE['gabriel'];
+  }
+
+  // 2. Direct 3D Surface Expression detection: e.g. "z = sin(x)*y", "plot z = x^2 + y^2", "draw z = ..."
+  const match3D = text.match(/z\s*=\s*([^;,\n]+)/i);
+  if (match3D && match3D[1]) {
+    const rawExpr = match3D[1].trim();
+    const clean = cleanExpression(rawExpr);
+    const vars = extractSliderVariables(clean).filter((v) => v !== 'x' && v !== 'y' && v !== 'z');
+
+    const sliders: SliderVar[] = vars.map((v) => ({
+      variable: v,
+      min: 1,
+      max: 10,
+      step: 0.1,
+      value: 3,
+      isPlaying: v === 't',
+      speed: 1,
+      direction: 1,
+    }));
+
+    return {
+      title: `Custom 3D Surface: z = ${rawExpr}`,
+      mode: '3d',
+      tag: 'Custom 3D',
+      expression3D: clean,
+      equations: [
+        {
+          id: `ai-custom-3d-${Date.now()}`,
+          type: 'surface3d',
+          expression: clean,
+          color: '#eab308',
+          strokeWidth: 2,
+          visible: true,
+          opacity: 0.95,
+          label: `z = ${rawExpr}`,
+        },
+      ],
+      sliders: sliders.length > 0 ? sliders : undefined,
+      explanation: `Synthesized 3D bivariate surface z = f(x, y) based directly on your expression '${rawExpr}'. Evaluated across the Euclidean domain and visualized in real-time WebGL with height colormapping.`,
+      mathNotes: `z(x, y) = ${clean.replace(/\*/g, ' ')}`,
+    };
+  }
+
+  // 3. Direct 2D Cartesian Function detection: e.g. "y = x^3 - 2x", "f(x) = sin(x)"
+  const match2D = text.match(/(y|f\(x\))\s*=\s*([^;,\n]+)/i);
+  if (match2D && match2D[2]) {
+    const rawExpr = match2D[2].trim();
+    const clean = cleanExpression(rawExpr);
+    const vars = extractSliderVariables(clean).filter((v) => v !== 'x');
+
+    const sliders: SliderVar[] = vars.map((v) => ({
+      variable: v,
+      min: -10,
+      max: 10,
+      step: 0.1,
+      value: 1,
+      isPlaying: false,
+      speed: 1,
+      direction: 1,
+    }));
+
+    return {
+      title: `Custom Cartesian Function: y = ${rawExpr}`,
+      mode: '2d',
+      tag: 'Custom 2D',
+      equations: [
+        {
+          id: `ai-custom-2d-${Date.now()}`,
+          type: 'cartesian',
+          expression: `y = ${clean}`,
+          color: '#0c87eb',
+          strokeWidth: 3,
+          visible: true,
+          opacity: 1,
+          label: `y = ${rawExpr}`,
+        },
+      ],
+      sliders: sliders.length > 0 ? sliders : undefined,
+      explanation: `Synthesized single-valued mathematical function y = f(x) for your input '${rawExpr}'. Ready to plot and simulate dynamically.`,
+      mathNotes: `y = ${clean.replace(/\*/g, ' ')}`,
+    };
+  }
+
+  // 4. Polar Function detection: e.g. "r = 2*cos(3*theta)"
+  const matchPolar = text.match(/r\s*=\s*([^;,\n]+)/i);
+  if (matchPolar && matchPolar[1]) {
+    const rawExpr = matchPolar[1].trim();
+    const clean = cleanExpression(rawExpr);
+    return {
+      title: `Custom Polar Curve: r = ${rawExpr}`,
+      mode: '2d',
+      tag: 'Custom Polar',
+      equations: [
+        {
+          id: `ai-custom-polar-${Date.now()}`,
+          type: 'polar',
+          expression: clean,
+          domain: { min: 0, max: 2 * Math.PI, step: 0.02 },
+          color: '#ec4899',
+          strokeWidth: 3,
+          visible: true,
+          opacity: 1,
+          label: `r = ${rawExpr}`,
+        },
+      ],
+      explanation: `Radial curve r = f(θ) parameterized over angle θ ∈ [0, 2π].`,
+      mathNotes: `r(\\theta) = ${clean.replace(/\*/g, ' ')}`,
+    };
+  }
+
+  // 5. Semantic keyword classification across mathematical dictionary
+  if (lower.includes('saddle') && !lower.includes('monkey')) return AI_KNOWLEDGE_BASE['saddle'];
+  if (lower.includes('monkey')) return AI_KNOWLEDGE_BASE['monkey'];
+  if (lower.includes('sphere') || lower.includes('dome') || lower.includes('hemisphere')) return AI_KNOWLEDGE_BASE['sphere'];
+  if (lower.includes('paraboloid') || lower.includes('bowl') || lower.includes('dish')) return AI_KNOWLEDGE_BASE['paraboloid'];
+  if (lower.includes('cone') || lower.includes('funnel')) return AI_KNOWLEDGE_BASE['cone'];
+  if (lower.includes('gaussian') || lower.includes('bell') || lower.includes('normal dist')) return AI_KNOWLEDGE_BASE['gaussian'];
+  if (lower.includes('sombrero') || lower.includes('sinc') || lower.includes('hat')) return AI_KNOWLEDGE_BASE['sombrero'];
+  if (lower.includes('torus') || lower.includes('donut')) return AI_KNOWLEDGE_BASE['torus'];
+  if (lower.includes('butter')) return AI_KNOWLEDGE_BASE['butterfly'];
+  if (lower.includes('spiral')) return AI_KNOWLEDGE_BASE['spiral'];
+  if (lower.includes('ripple') || lower.includes('wave')) return AI_KNOWLEDGE_BASE['ripple'];
+  if (lower.includes('fourier') || lower.includes('harm')) return AI_KNOWLEDGE_BASE['fourier'];
+  if (lower.includes('batman') || lower.includes('bat logo')) return AI_KNOWLEDGE_BASE['batman'];
+  if (lower.includes('heart') || lower.includes('cardioid') || lower.includes('love')) return AI_KNOWLEDGE_BASE['heart'];
+
+  // 6. Generic 3D request fallback: if user explicitly asked for "3d", provide an interactive 3D surface
+  if (lower.includes('3d') || lower.includes('surface')) {
+    return AI_KNOWLEDGE_BASE['gabriel'];
+  }
+
+  // 7. General default: Heart curve
+  return AI_KNOWLEDGE_BASE['heart'];
+}
+
 export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
   onAddEquationsToGraph,
   onSwitchTo3D,
 }) => {
   const [prompt, setPrompt] = useState('');
   const [currentResponse, setCurrentResponse] = useState<AIResponse | null>(
-    AI_KNOWLEDGE_BASE['heart']
+    AI_KNOWLEDGE_BASE['gabriel']
   );
   const [addedSuccess, setAddedSuccess] = useState(false);
 
   const sampleQueries = [
-    { label: 'Draw a heart shape', key: 'heart' },
-    { label: 'Butterfly polar curve', key: 'butterfly' },
-    { label: 'Equiangular golden spiral', key: 'spiral' },
-    { label: '3D propagating ripple surface', key: 'ripple' },
-    { label: 'Fourier square wave synthesis', key: 'fourier' },
-    { label: 'Batman curve equation', key: 'batman' },
+    { label: "Draw Gabriel's Horn in 3D", query: "draw gabriel's horn in 3d" },
+    { label: 'Hyperbolic Saddle surface', query: 'draw a saddle surface in 3d' },
+    { label: 'Draw a heart shape', query: 'draw a heart shape' },
+    { label: 'Temple Fay butterfly curve', query: 'draw a butterfly curve' },
+    { label: '3D circular wave ripple', query: 'show me a 3d wave ripple' },
+    { label: 'Fourier square wave synthesis', query: 'fourier series square wave' },
   ];
 
   const handleQuery = (queryText: string) => {
-    const lower = queryText.toLowerCase();
-
-    let matchedKey = 'heart';
-    if (lower.includes('butter')) matchedKey = 'butterfly';
-    else if (lower.includes('spiral')) matchedKey = 'spiral';
-    else if (lower.includes('ripple') || lower.includes('3d') || lower.includes('wave')) matchedKey = 'ripple';
-    else if (lower.includes('fourier') || lower.includes('harm')) matchedKey = 'fourier';
-    else if (lower.includes('batman')) matchedKey = 'batman';
-
-    setCurrentResponse(AI_KNOWLEDGE_BASE[matchedKey]);
+    if (!queryText.trim()) return;
+    const response = interpretMathQuery(queryText);
+    setCurrentResponse(response);
     setAddedSuccess(false);
   };
 
@@ -199,7 +547,8 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
     if (!currentResponse) return;
 
     if (currentResponse.mode === '3d' && onSwitchTo3D) {
-      onSwitchTo3D(currentResponse.equations[0].expression);
+      const expr = currentResponse.expression3D || currentResponse.equations[0]?.expression || '4 / (sqrt(x^2 + y^2) + 0.2)';
+      onSwitchTo3D(expr);
     } else {
       onAddEquationsToGraph(currentResponse.equations, currentResponse.sliders);
     }
@@ -210,7 +559,7 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
 
   return (
     <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-7 max-w-5xl mx-auto custom-scrollbar math-notebook-bg">
-      {/* MathRobo Welcome Hero Card (Directly inspired by user uploaded picture) */}
+      {/* MathRobo Welcome Hero Card */}
       <div className="bg-white border-2 border-slate-900 rounded-3xl p-6 md:p-8 shadow-[3px_4px_0px_#0f172a] flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
         <div className="space-y-3 z-10 text-center md:text-left">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FFE500] text-slate-950 font-black text-xs border border-slate-900 shadow-[1px_1px_0px_#0f172a]">
@@ -222,7 +571,7 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
             I'm MathRobo
           </h1>
           <p className="text-base font-semibold text-slate-600 max-w-lg">
-            and I will help you with math, generate equations from natural language, and model complex curves!
+            and I will help you with math! Ask me to generate any 3D surface (e.g. Gabriel's horn, saddle, sphere) or 2D curve.
           </p>
         </div>
 
@@ -252,7 +601,7 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
                 handleQuery(prompt);
               }
             }}
-            placeholder="Ask MathRobo: e.g. Draw a heart shape, or generate a butterfly curve..."
+            placeholder="Ask MathRobo: e.g. draw Gabriel's function in 3D, or plot a hyperbolic saddle..."
             className="w-full pl-5 pr-28 py-3.5 text-sm bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 shadow-inner font-medium"
           />
 
@@ -269,13 +618,13 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
 
         {/* Suggestion Chips */}
         <div className="flex items-center gap-2 flex-wrap pt-1 text-xs">
-          <span className="text-slate-400 font-bold text-[11px] mr-1">Suggestions:</span>
+          <span className="text-slate-400 font-bold text-[11px] mr-1">Try asking:</span>
           {sampleQueries.map((q) => (
             <button
-              key={q.key}
+              key={q.label}
               onClick={() => {
-                setPrompt(q.label);
-                handleQuery(q.key);
+                setPrompt(q.query);
+                handleQuery(q.query);
               }}
               className="px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-[#FFF9C4] text-slate-700 hover:text-slate-950 border border-slate-200 hover:border-yellow-400 text-[11px] font-bold transition-all shadow-sm"
             >
@@ -285,7 +634,7 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
         </div>
       </div>
 
-      {/* AI Synthesis Result Card (Matches reference formula cards) */}
+      {/* AI Synthesis Result Card */}
       {currentResponse && (
         <div className="bg-white border border-slate-200 rounded-3xl p-6 md:p-7 shadow-sm space-y-5 animate-in fade-in duration-300">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
@@ -324,7 +673,7 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
             </button>
           </div>
 
-          {/* Mathematical Formula Preview in Crisp Pitch Yellow Tag */}
+          {/* Mathematical Formula Preview */}
           <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
             <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-500">
               Mathematical Formulation:
