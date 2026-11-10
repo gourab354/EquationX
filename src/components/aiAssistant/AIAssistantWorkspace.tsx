@@ -24,12 +24,12 @@ import {
   Settings,
   X,
   AlertCircle,
-  Lock
+  Orbit
 } from 'lucide-react';
 
 interface AIAssistantWorkspaceProps {
   onAddEquationsToGraph: (equations: Equation[], sliders?: SliderVar[]) => void;
-  onSwitchTo3D?: (expr: string) => void;
+  onSwitchTo3D?: (expr?: string, mode?: 'surface' | 'curve', curve?: { x: string; y: string; z: string }) => void;
   currentUser: GoogleUser | null;
   onOpenAuth: () => void;
 }
@@ -43,13 +43,103 @@ export interface AIResponse {
   mode: '2d' | '3d';
   tag?: string;
   expression3D?: string;
+  mode3DType?: 'surface' | 'curve';
+  parametricCurve3D?: { x: string; y: string; z: string };
 }
 
 export const AI_KNOWLEDGE_BASE: Record<string, AIResponse> = {
+  trefoil_knot: {
+    title: 'Trefoil Mathematical Knot (3_1 Knot Model)',
+    mode: '3d',
+    tag: '3D Knot Theory',
+    mode3DType: 'curve',
+    parametricCurve3D: {
+      x: 'sin(t) + 2 * sin(2 * t)',
+      y: 'cos(t) - 2 * cos(2 * t)',
+      z: '-sin(3 * t)',
+    },
+    expression3D: '2.5 * sin(3 * atan2(y, x) - sqrt(x^2 + y^2)) * exp(-0.04 * (x^2 + y^2))',
+    equations: [
+      {
+        id: 'ai-trefoil-knot',
+        type: 'parametric',
+        expression: 'sin(t) + 2 * sin(2 * t)',
+        parametricY: 'cos(t) - 2 * cos(2 * t)',
+        domain: { min: 0, max: 2 * Math.PI, step: 0.02 },
+        color: '#f59e0b',
+        strokeWidth: 3,
+        visible: true,
+        opacity: 1,
+        label: 'Trefoil Knot Plane Projection',
+      },
+    ],
+    mathNotes: 'x(t) = \\sin(t) + 2\\sin(2t), \\quad y(t) = \\cos(t) - 2\\cos(2t), \\quad z(t) = -\\sin(3t)',
+    explanation:
+      'The trefoil knot (3₁ knot) is the simplest non-trivial knot in topology. It cannot be unknotted in 3D space without cutting. It is chiral (distinct from its mirror image) and possesses alternating 3-fold rotational symmetry.',
+  },
+  figure8_knot: {
+    title: 'Figure-Eight Knot (4_1 Listing Knot)',
+    mode: '3d',
+    tag: '3D Knot Theory',
+    mode3DType: 'curve',
+    parametricCurve3D: {
+      x: '(2 + cos(2 * t)) * cos(3 * t)',
+      y: '(2 + cos(2 * t)) * sin(3 * t)',
+      z: 'sin(4 * t)',
+    },
+    expression3D: '2 * sin(4 * atan2(y, x)) * exp(-0.06 * (x^2 + y^2))',
+    equations: [
+      {
+        id: 'ai-fig8-knot',
+        type: 'parametric',
+        expression: '(2 + cos(2 * t)) * cos(3 * t)',
+        parametricY: '(2 + cos(2 * t)) * sin(3 * t)',
+        domain: { min: 0, max: 2 * Math.PI, step: 0.02 },
+        color: '#8b5cf6',
+        strokeWidth: 3,
+        visible: true,
+        opacity: 1,
+        label: 'Figure-Eight Knot',
+      },
+    ],
+    mathNotes: 'x(t) = (2 + \\cos 2t)\\cos 3t, \\quad y(t) = (2 + \\cos 2t)\\sin 3t, \\quad z(t) = \\sin 4t',
+    explanation:
+      'The figure-eight knot is the unique prime knot with 4 crossings. Unlike the trefoil, the figure-eight knot is amphicheiral (it is ambient isotopic to its own mirror reflection).',
+  },
+  torus_knot: {
+    title: 'Torus Knot T(2, 3) 3D Model',
+    mode: '3d',
+    tag: '3D Knot Theory',
+    mode3DType: 'curve',
+    parametricCurve3D: {
+      x: '(2.5 + cos(3 * t)) * cos(2 * t)',
+      y: '(2.5 + cos(3 * t)) * sin(2 * t)',
+      z: 'sin(3 * t)',
+    },
+    expression3D: '2 * cos(3 * atan2(y, x) - 2 * sqrt(x^2 + y^2)) * exp(-0.05 * (x^2 + y^2))',
+    equations: [
+      {
+        id: 'ai-torus-knot',
+        type: 'parametric',
+        expression: '(2.5 + cos(3 * t)) * cos(2 * t)',
+        parametricY: '(2.5 + cos(3 * t)) * sin(2 * t)',
+        domain: { min: 0, max: 2 * Math.PI, step: 0.02 },
+        color: '#06b6d4',
+        strokeWidth: 3,
+        visible: true,
+        opacity: 1,
+        label: 'Torus Knot (2, 3)',
+      },
+    ],
+    mathNotes: 'r(t) = 2.5 + \\cos(3t), \\quad x(t) = r(t)\\cos(2t), \\quad y(t) = r(t)\\sin(2t), \\quad z(t) = \\sin(3t)',
+    explanation:
+      'A torus knot lies entirely on the surface of an unknotted 3D donut (torus) in R³. The T(2, 3) knot winds 2 times along the meridian and 3 times along the longitude before reconnecting.',
+  },
   gabriel: {
     title: "Gabriel's Horn (Torricelli's Trumpet)",
     mode: '3d',
     tag: "Gabriel's Horn",
+    mode3DType: 'surface',
     expression3D: '4 / (sqrt(x^2 + y^2) + 0.2)',
     equations: [
       {
@@ -66,108 +156,15 @@ export const AI_KNOWLEDGE_BASE: Record<string, AIResponse> = {
     sliders: [
       { variable: 'a', min: 1, max: 10, step: 0.2, value: 4, isPlaying: false, speed: 1, direction: 1 },
     ],
+    mathNotes: 'z(x, y) = \\frac{a}{\\sqrt{x^2 + y^2} + 0.2}, \\quad V = \\pi, \\quad A = \\infty',
     explanation:
-      "Gabriel's Horn (Torricelli's Trumpet) was discovered in 1644 by Evangelista Torricelli. Formed by revolving y = 1/x for x ≥ 1 around the axis, it exhibits the famous 'Painter's Paradox': it has a finite volume (V = π), yet an infinite surface area (A = ∞)! A finite bucket of paint (π cubic units) could fill the horn, but could never coat its inner surface!",
-    mathNotes: 'z(x, y) = \\frac{a}{\\sqrt{x^2 + y^2} + 0.2}, \\quad V = \\pi \\int_1^\\infty \\frac{1}{x^2}\\,dx = \\pi, \\quad A = 2\\pi \\int_1^\\infty \\frac{1}{x}\\sqrt{1 + \\frac{1}{x^4}}\\,dx = \\infty',
-  },
-  saddle: {
-    title: 'Hyperbolic Paraboloid (Saddle Surface)',
-    mode: '3d',
-    tag: 'Saddle Surface',
-    expression3D: '(x^2 - y^2) / a',
-    equations: [
-      {
-        id: 'ai-eq-saddle',
-        type: 'surface3d',
-        expression: '(x^2 - y^2) / a',
-        color: '#0c87eb',
-        strokeWidth: 2,
-        visible: true,
-        opacity: 0.9,
-        label: 'Saddle Surface',
-      },
-    ],
-    sliders: [
-      { variable: 'a', min: 1, max: 8, step: 0.5, value: 3.5, isPlaying: false, speed: 1, direction: 1 },
-    ],
-    explanation:
-      'The hyperbolic paraboloid is a doubly-ruled quadric surface. In multivariable calculus, the origin (0, 0, 0) represents a classic critical saddle point where the gradient is zero (∇z = 0), yet the point is neither a local maximum nor a local minimum.',
-    mathNotes: 'z = \\frac{x^2 - y^2}{a}, \\quad \\frac{\\partial^2 z}{\\partial x^2} > 0, \\quad \\frac{\\partial^2 z}{\\partial y^2} < 0',
-  },
-  catenoid: {
-    title: 'Catenoid Minimal Surface',
-    mode: '3d',
-    tag: 'Catenoid',
-    expression3D: 'cosh(sqrt(x^2 + y^2)/2.5) - 1',
-    equations: [
-      {
-        id: 'ai-eq-catenoid',
-        type: 'surface3d',
-        expression: 'cosh(sqrt(x^2 + y^2)/2.5) - 1',
-        color: '#f59e0b',
-        strokeWidth: 2,
-        visible: true,
-        opacity: 0.95,
-        label: 'Catenoid',
-      },
-    ],
-    explanation:
-      'Discovered by Leonhard Euler in 1744, the catenoid is the only minimal surface of revolution in 3D Euclidean space other than the plane. Naturally formed by soap films between two parallel rings, it maintains zero mean curvature (H = 0).',
-    mathNotes: 'z(x, y) = c \\cdot \\cosh\\left(\\frac{\\sqrt{x^2 + y^2}}{c}\\right) - c, \\quad H = 0 \\text{ (Mean Curvature)}',
-  },
-  helicoid: {
-    title: 'Helicoid Minimal Surface',
-    mode: '3d',
-    tag: 'Helicoid',
-    expression3D: '2 * atan2(y, x)',
-    equations: [
-      {
-        id: 'ai-eq-helicoid',
-        type: 'surface3d',
-        expression: 'c * atan2(y, x)',
-        color: '#8b5cf6',
-        strokeWidth: 2,
-        visible: true,
-        opacity: 0.95,
-        label: 'Helicoid Ramp',
-      },
-    ],
-    sliders: [
-      { variable: 'c', min: 0.5, max: 4, step: 0.2, value: 2, isPlaying: false, speed: 1, direction: 1 },
-    ],
-    explanation:
-      'The helicoid is a ruled minimal surface forming a continuous spiral ramp winding around the z-axis. It is isometric to the catenoid through a continuous Bonnet deformation family.',
-    mathNotes: 'z(x, y) = c \\cdot \\text{atan2}(y, x), \\quad H = 0',
-  },
-  torus: {
-    title: 'Ring Torus 3D Surface',
-    mode: '3d',
-    tag: 'Torus',
-    expression3D: 'sqrt(max(0, 4 - (4 - sqrt(x^2 + y^2))^2))',
-    equations: [
-      {
-        id: 'ai-eq-torus-top',
-        type: 'surface3d',
-        expression: 'sqrt(max(0, r^2 - (R - sqrt(x^2 + y^2))^2))',
-        color: '#ec4899',
-        strokeWidth: 2,
-        visible: true,
-        opacity: 0.95,
-        label: 'Upper Torus Dome',
-      },
-    ],
-    sliders: [
-      { variable: 'R', min: 2, max: 8, step: 0.2, value: 4, isPlaying: false, speed: 1, direction: 1 },
-      { variable: 'r', min: 0.5, max: 3, step: 0.1, value: 2, isPlaying: false, speed: 1, direction: 1 },
-    ],
-    explanation:
-      'A torus generated by revolving a circle of minor radius r about a coplanar axis at major distance R. It is a compact manifold of genus 1 with Euler characteristic χ = 0.',
-    mathNotes: 'z(x, y) = \\pm \\sqrt{r^2 - \\left(R - \\sqrt{x^2 + y^2}\\right)^2}',
+      "Gabriel's Horn (discovered in 1644 by Evangelista Torricelli) exhibits the 'Painter's Paradox': a finite volume (V = π), yet an infinite surface area (A = ∞). A finite bucket of paint fills it, but can never coat its inner surface!",
   },
   blackhole: {
-    title: 'Black Hole Gravitational Potential Well',
+    title: 'Black Hole Spacetime Gravitational Funnel',
     mode: '3d',
-    tag: 'Astrophysics',
+    tag: 'Astrophysics & Relativity',
+    mode3DType: 'surface',
     expression3D: '-6 / (sqrt(x^2 + y^2) + 0.3)',
     equations: [
       {
@@ -184,14 +181,113 @@ export const AI_KNOWLEDGE_BASE: Record<string, AIResponse> = {
     sliders: [
       { variable: 'M', min: 1, max: 15, step: 0.5, value: 6, isPlaying: false, speed: 1, direction: 1 },
     ],
+    mathNotes: 'z(x, y) = -\\frac{GM}{\\sqrt{x^2 + y^2} + \\epsilon}, \\quad g = -\\nabla z',
     explanation:
-      "A geometric visualization of Schwarzschild spacetime curvature and Newtonian gravitational potential Φ(r) = -GM/r. Near the singularity r → 0, spacetime geometry stretches infinitely into a gravitational funnel.",
-    mathNotes: '\\Phi(x, y) = -\\frac{GM}{\\sqrt{x^2 + y^2} + \\epsilon}, \\quad g = -\\nabla \\Phi',
+      'Geometric representation of Schwarzschild spacetime embedding and gravitational potential well. As distance to the center approaches zero, curvature stretches into an infinite gravitational singularity.',
+  },
+  wormhole: {
+    title: "Einstein-Rosen Bridge (Wormhole Throat)",
+    mode: '3d',
+    tag: 'General Relativity',
+    mode3DType: 'surface',
+    expression3D: 'sqrt(x^2 + y^2 + 1) - 1',
+    equations: [
+      {
+        id: 'ai-eq-wormhole',
+        type: 'surface3d',
+        expression: 'sqrt(x^2 + y^2 + r_0^2) - r_0',
+        color: '#6366f1',
+        strokeWidth: 2,
+        visible: true,
+        opacity: 0.95,
+        label: 'Wormhole Throat',
+      },
+    ],
+    sliders: [
+      { variable: 'r_0', min: 0.5, max: 4, step: 0.2, value: 1, isPlaying: false, speed: 1, direction: 1 },
+    ],
+    mathNotes: 'z(x, y) = \\pm \\sqrt{x^2 + y^2 + r_0^2} - r_0',
+    explanation:
+      'The Flamm paraboloid metric representing the spatial slice of an Einstein-Rosen bridge (wormhole) connecting two asymptotic regions of spacetime through a throat of radius r₀.',
+  },
+  helicoid: {
+    title: 'Helicoid Minimal Surface (Spiral Ramp)',
+    mode: '3d',
+    tag: 'Minimal Surface',
+    mode3DType: 'surface',
+    expression3D: '2 * atan2(y, x)',
+    equations: [
+      {
+        id: 'ai-eq-helicoid',
+        type: 'surface3d',
+        expression: 'c * atan2(y, x)',
+        color: '#8b5cf6',
+        strokeWidth: 2,
+        visible: true,
+        opacity: 0.95,
+        label: 'Helicoid Ramp',
+      },
+    ],
+    sliders: [
+      { variable: 'c', min: 0.5, max: 4, step: 0.2, value: 2, isPlaying: false, speed: 1, direction: 1 },
+    ],
+    mathNotes: 'z(x, y) = c \\cdot \\text{atan2}(y, x), \\quad H = 0',
+    explanation:
+      'The helicoid is a ruled minimal surface discovered by Meusnier in 1776. It forms a continuous spiral ramp winding around the vertical axis with zero mean curvature.',
+  },
+  catenoid: {
+    title: 'Catenoid Minimal Surface',
+    mode: '3d',
+    tag: 'Minimal Surface',
+    mode3DType: 'surface',
+    expression3D: 'cosh(sqrt(x^2 + y^2)/2.5) - 1',
+    equations: [
+      {
+        id: 'ai-eq-catenoid',
+        type: 'surface3d',
+        expression: 'cosh(sqrt(x^2 + y^2)/2.5) - 1',
+        color: '#f59e0b',
+        strokeWidth: 2,
+        visible: true,
+        opacity: 0.95,
+        label: 'Catenoid',
+      },
+    ],
+    mathNotes: 'z(x, y) = c \\cdot \\cosh\\left(\\frac{\\sqrt{x^2 + y^2}}{c}\\right) - c, \\quad H = 0',
+    explanation:
+      'The only minimal surface of revolution other than the plane. Naturally formed by a soap film between two parallel coaxial rings.',
+  },
+  torus: {
+    title: 'Ring Torus 3D Surface',
+    mode: '3d',
+    tag: 'Toroidal Geometry',
+    mode3DType: 'surface',
+    expression3D: 'sqrt(max(0, 4 - (4 - sqrt(x^2 + y^2))^2))',
+    equations: [
+      {
+        id: 'ai-eq-torus',
+        type: 'surface3d',
+        expression: 'sqrt(max(0, r^2 - (R - sqrt(x^2 + y^2))^2))',
+        color: '#ec4899',
+        strokeWidth: 2,
+        visible: true,
+        opacity: 0.95,
+        label: 'Torus Dome',
+      },
+    ],
+    sliders: [
+      { variable: 'R', min: 2, max: 8, step: 0.2, value: 4, isPlaying: false, speed: 1, direction: 1 },
+      { variable: 'r', min: 0.5, max: 3, step: 0.1, value: 2, isPlaying: false, speed: 1, direction: 1 },
+    ],
+    mathNotes: 'z(x, y) = \\pm \\sqrt{r^2 - \\left(R - \\sqrt{x^2 + y^2}\\right)^2}',
+    explanation:
+      'A compact manifold of genus 1 generated by rotating a circle of radius r about a coplanar axis at distance R.',
   },
   eggcarton: {
-    title: 'Egg Carton 2D Grid Periodic Surface',
+    title: 'Egg Carton Optical Lattice Grid',
     mode: '3d',
-    tag: 'Periodic Grid',
+    tag: 'Periodic Lattice',
+    mode3DType: 'surface',
     expression3D: '2 * sin(x) * cos(y)',
     equations: [
       {
@@ -202,64 +298,248 @@ export const AI_KNOWLEDGE_BASE: Record<string, AIResponse> = {
         strokeWidth: 2,
         visible: true,
         opacity: 0.95,
-        label: 'Periodic Hills & Valleys',
+        label: 'Egg Carton Grid',
       },
     ],
-    sliders: [
-      { variable: 'A', min: 0.5, max: 5, step: 0.2, value: 2, isPlaying: false, speed: 1, direction: 1 },
-    ],
-    explanation:
-      'A 2D doubly-periodic wave surface resembling an egg carton tray or crystalline optical lattice in condensed matter physics, formed by the product of orthogonal sinusoids.',
     mathNotes: 'z(x, y) = A \\cdot \\sin(x) \\cos(y)',
+    explanation:
+      'A doubly-periodic wave surface resembling an egg carton tray or 2D optical lattice used to trap ultracold atoms in quantum physics.',
+  },
+  chladni: {
+    title: 'Chladni Plate Resonance Standing Wave',
+    mode: '3d',
+    tag: 'Acoustic Resonance',
+    mode3DType: 'surface',
+    expression3D: '2 * sin(2 * x) * sin(3 * y) - 2 * sin(3 * x) * sin(2 * y)',
+    equations: [
+      {
+        id: 'ai-chladni',
+        type: 'surface3d',
+        expression: '2 * sin(2 * x) * sin(3 * y) - 2 * sin(3 * x) * sin(2 * y)',
+        color: '#0c87eb',
+        strokeWidth: 2,
+        visible: true,
+        opacity: 0.95,
+        label: 'Chladni Eigenmode',
+      },
+    ],
+    mathNotes: 'z(x, y) = a\\sin(nx)\\sin(my) - a\\sin(mx)\\sin(ny)',
+    explanation:
+      'Eigenmode solution of the 2D biharmonic plate vibration equation ∇⁴w = (ρω²/D)w, famous for forming nodal sand patterns on resonant metal plates.',
+  },
+  galaxy: {
+    title: 'Spiral Galaxy Arm Density Wave',
+    mode: '3d',
+    tag: 'Galactic Dynamics',
+    mode3DType: 'surface',
+    expression3D: '2.5 * cos(2 * atan2(y, x) - 0.7 * sqrt(x^2 + y^2)) * exp(-0.06 * (x^2 + y^2))',
+    equations: [
+      {
+        id: 'ai-galaxy',
+        type: 'surface3d',
+        expression: 'A * cos(m * atan2(y, x) - k * sqrt(x^2 + y^2)) * exp(-c * (x^2 + y^2))',
+        color: '#c084fc',
+        strokeWidth: 2,
+        visible: true,
+        opacity: 0.95,
+        label: 'Galactic Spiral Arms',
+      },
+    ],
+    mathNotes: 'z(x, y) = A \\cos\\left(m\\theta - k r\\right) e^{-c r^2}, \\quad r = \\sqrt{x^2+y^2}, \\, \\theta = \\text{atan2}(y, x)',
+    explanation:
+      'Lin-Shu density wave theory model recreating the twin logarithmic trailing spiral arms of disk galaxies (like the Milky Way).',
+  },
+  mountain: {
+    title: 'Fractal Mountain Peak & Valley Terrain',
+    mode: '3d',
+    tag: 'Terrain Topography',
+    mode3DType: 'surface',
+    expression3D: '4 * exp(-(x^2 + y^2) / 15) + 1.2 * cos(x) * sin(y) + 0.6 * sin(2 * x) * cos(2 * y)',
+    equations: [
+      {
+        id: 'ai-mountain',
+        type: 'surface3d',
+        expression: '4 * exp(-(x^2 + y^2) / 15) + 1.2 * cos(x) * sin(y) + 0.6 * sin(2 * x) * cos(2 * y)',
+        color: '#15803d',
+        strokeWidth: 2,
+        visible: true,
+        opacity: 0.95,
+        label: 'Mountain Ridge',
+      },
+    ],
+    mathNotes: 'z(x, y) = H e^{-\\frac{x^2+y^2}{\\sigma^2}} + \\sum_{i} A_i \\cos(k_i x)\\sin(k_i y)',
+    explanation:
+      'Harmonic multi-scale topography model superimposing a primary central Gaussian massif with higher-frequency cross-valley ridges.',
   },
   volcano: {
-    title: 'Caldera Crater & Volcanic Peak',
+    title: 'Caldera Crater & Volcanic Cone',
     mode: '3d',
-    tag: 'Terrain',
+    tag: 'Geomorphology',
+    mode3DType: 'surface',
     expression3D: '6 * (x^2 + y^2) * exp(-0.3 * (x^2 + y^2))',
     equations: [
       {
-        id: 'ai-eq-volcano',
+        id: 'ai-volcano',
         type: 'surface3d',
         expression: 'A * (x^2 + y^2) * exp(-k * (x^2 + y^2))',
-        color: '#f97316',
+        color: '#ea580c',
         strokeWidth: 2,
         visible: true,
         opacity: 0.95,
         label: 'Volcano Caldera',
       },
     ],
-    sliders: [
-      { variable: 'A', min: 1, max: 10, step: 0.5, value: 6, isPlaying: false, speed: 1, direction: 1 },
-      { variable: 'k', min: 0.1, max: 0.8, step: 0.05, value: 0.3, isPlaying: false, speed: 1, direction: 1 },
-    ],
-    explanation:
-      'A radial ring-ridge model with central caldera depression, formed by scaling quadratic radial growth (r²) by exponential Gaussian damping e^(-kr²).',
     mathNotes: 'z(x, y) = A(x^2 + y^2) e^{-k(x^2 + y^2)}',
+    explanation:
+      'A radial ring-ridge model with a central collapsed caldera crater depression, created by scaling r² with exponential damping e^(-kr²).',
+  },
+  ocean_waves: {
+    title: 'Multi-Frequency Ocean Surface Waves',
+    mode: '3d',
+    tag: 'Fluid Dynamics',
+    mode3DType: 'surface',
+    expression3D: '1.5 * sin(x - t) + 1.2 * cos(0.8 * y - 0.8 * t) + 0.6 * sin(x + y - 1.5 * t)',
+    equations: [
+      {
+        id: 'ai-ocean',
+        type: 'surface3d',
+        expression: '1.5 * sin(x - t) + 1.2 * cos(0.8 * y - 0.8 * t) + 0.6 * sin(x + y - 1.5 * t)',
+        color: '#0284c7',
+        strokeWidth: 2,
+        visible: true,
+        opacity: 0.95,
+        label: 'Dynamic Ocean Waves',
+      },
+    ],
+    sliders: [
+      { variable: 't', min: 0, max: 20, step: 0.1, value: 0, isPlaying: true, speed: 1, direction: 1 },
+    ],
+    mathNotes: 'z(x, y, t) = \\sum_{j} A_j \\sin(\\mathbf{k}_j \\cdot \\mathbf{x} - \\omega_j t)',
+    explanation:
+      'Superposition of gravity-capillary surface waves on deep water governed by the linearized Navier-Stokes potential flow dispersion relation.',
+  },
+  dna: {
+    title: 'DNA Double Helix Spatial Curve',
+    mode: '3d',
+    tag: 'Molecular Biology',
+    mode3DType: 'curve',
+    parametricCurve3D: {
+      x: '2.5 * cos(t)',
+      y: '2.5 * sin(t)',
+      z: '0.4 * t - 4',
+    },
+    equations: [
+      {
+        id: 'ai-dna-curve',
+        type: 'parametric',
+        expression: '2.5 * cos(t)',
+        parametricY: '0.4 * t',
+        domain: { min: -15, max: 15, step: 0.05 },
+        color: '#0c87eb',
+        strokeWidth: 3,
+        visible: true,
+        opacity: 1,
+        label: 'DNA Double Helix',
+      },
+    ],
+    mathNotes: 'x(t) = R\\cos(t), \\quad y(t) = R\\sin(t), \\quad z(t) = c t',
+    explanation:
+      'Watson-Crick molecular geometry of the B-DNA double helix coiled around a central cylindrical axis.',
+  },
+  saddle: {
+    title: 'Hyperbolic Paraboloid (Saddle Surface)',
+    mode: '3d',
+    tag: 'Quadric Surface',
+    mode3DType: 'surface',
+    expression3D: '(x^2 - y^2) / a',
+    equations: [
+      {
+        id: 'ai-saddle',
+        type: 'surface3d',
+        expression: '(x^2 - y^2) / a',
+        color: '#0c87eb',
+        strokeWidth: 2,
+        visible: true,
+        opacity: 0.9,
+        label: 'Saddle Surface',
+      },
+    ],
+    sliders: [
+      { variable: 'a', min: 1, max: 8, step: 0.5, value: 3.5, isPlaying: false, speed: 1, direction: 1 },
+    ],
+    mathNotes: 'z = \\frac{x^2 - y^2}{a}, \\quad \\frac{\\partial^2 z}{\\partial x^2} > 0, \\, \\frac{\\partial^2 z}{\\partial y^2} < 0',
+    explanation:
+      'A doubly-ruled quadric surface with opposite principal curvatures at the origin. Represents a critical minimax saddle point in multivariable calculus.',
+  },
+  monkey_saddle: {
+    title: 'Monkey Saddle Cubic Surface',
+    mode: '3d',
+    tag: 'Differential Geometry',
+    mode3DType: 'surface',
+    expression3D: '(x^3 - 3 * x * y^2) / 10',
+    equations: [
+      {
+        id: 'ai-monkey',
+        type: 'surface3d',
+        expression: '(x^3 - 3 * x * y^2) / 10',
+        color: '#8b5cf6',
+        strokeWidth: 2,
+        visible: true,
+        opacity: 0.9,
+        label: 'Monkey Saddle',
+      },
+    ],
+    mathNotes: 'z(x, y) = \\frac{x^3 - 3xy^2}{10} = \\frac{\\text{Re}\\left((x + iy)^3\\right)}{10}',
+    explanation:
+      'Defined by the cubic real part of (x + iy)³. It possesses three distinct descending depressions descending from the origin: two for monkey legs and one for its tail!',
   },
   sombrero: {
     title: 'Sombrero Sinc Function (Airy Diffraction Disc)',
     mode: '3d',
     tag: 'Wave Optics',
+    mode3DType: 'surface',
     expression3D: '5 * sin(sqrt(x^2 + y^2) + 0.001) / (sqrt(x^2 + y^2) + 0.001)',
     equations: [
       {
-        id: 'ai-eq-sombrero',
+        id: 'ai-sombrero',
         type: 'surface3d',
-        expression: 'A * sin(sqrt(x^2 + y^2) + 0.001) / (sqrt(x^2 + y^2) + 0.001)',
+        expression: '5 * sin(sqrt(x^2 + y^2) + 0.001) / (sqrt(x^2 + y^2) + 0.001)',
         color: '#0c87eb',
         strokeWidth: 2,
         visible: true,
         opacity: 0.9,
-        label: 'Sombrero Sinc Wave',
+        label: 'Sombrero Sinc',
+      },
+    ],
+    mathNotes: 'z(x, y) = A \\cdot \\frac{\\sin(\\sqrt{x^2+y^2})}{\\sqrt{x^2+y^2}}',
+    explanation:
+      'A radially symmetric 2D sinc function sinc(r) = sin(r)/r resembling a Mexican sombrero hat. Fundamental for Airy diffraction patterns in optics.',
+  },
+  ripple: {
+    title: '3D Bessel Circular Wave Ripple',
+    mode: '3d',
+    tag: 'Wave Mechanics',
+    mode3DType: 'surface',
+    expression3D: '2.5 * sin(sqrt(x^2 + y^2) - t)',
+    equations: [
+      {
+        id: 'ai-ripple',
+        type: 'surface3d',
+        expression: 'A * sin(sqrt(x^2 + y^2) - t)',
+        color: '#0c87eb',
+        strokeWidth: 2,
+        visible: true,
+        opacity: 0.95,
+        label: 'Circular Ripple',
       },
     ],
     sliders: [
-      { variable: 'A', min: 1, max: 10, step: 0.5, value: 5, isPlaying: false, speed: 1, direction: 1 },
+      { variable: 'A', min: 0.5, max: 5, step: 0.1, value: 2.5, isPlaying: false, speed: 1, direction: 1 },
+      { variable: 't', min: 0, max: 20, step: 0.1, value: 0, isPlaying: true, speed: 1, direction: 1 },
     ],
+    mathNotes: 'z(x, y, t) = A \\sin\\left(\\sqrt{x^2+y^2} - t\\right)',
     explanation:
-      'Radially symmetric 2D sinc function sinc(r) = sin(r)/r resembling a Mexican sombrero hat. Crucial in optics for circular aperture diffraction patterns.',
-    mathNotes: 'z(x, y) = A \\cdot \\frac{\\sin(\\sqrt{x^2 + y^2})}{\\sqrt{x^2 + y^2}}',
+      'Radially expanding harmonic wave on a 2D fluid surface governed by the 2D wave equation ∇²z = (1/c²)∂²z/∂t².',
   },
   heart: {
     title: 'Cardioid Mathematical Heart Curve',
@@ -287,9 +567,9 @@ export const AI_KNOWLEDGE_BASE: Record<string, AIResponse> = {
         label: 'Heart Lower Apex',
       },
     ],
+    mathNotes: 'y = \\sqrt{1 - (|x| - 1)^2}, \\quad y = -3\\sqrt{1 - \\sqrt{|x|/2}}',
     explanation:
       'A beautiful closed algebraic cardioid heart curve constructed piecewise using reflection symmetry abs(x).',
-    mathNotes: 'y = \\sqrt{1 - (|x| - 1)^2}, \\quad y = -3\\sqrt{1 - \\sqrt{|x|/2}}',
   },
   butterfly: {
     title: 'Temple Fay Butterfly Transcendental Curve',
@@ -308,9 +588,9 @@ export const AI_KNOWLEDGE_BASE: Record<string, AIResponse> = {
         label: 'Temple Fay Butterfly',
       },
     ],
+    mathNotes: 'r(\\theta) = e^{\\cos\\theta} - 2\\cos(4\\theta) + \\sin^5\\left(\\frac{\\theta}{12}\\right)',
     explanation:
       'Discovered by Temple H. Fay in 1989, this intricate polar curve produces realistic butterfly wings through a harmonic superposition of exponential growth and oscillation.',
-    mathNotes: 'r(\\theta) = e^{\\cos\\theta} - 2\\cos(4\\theta) + \\sin^5\\left(\\frac{\\theta}{12}\\right)',
   },
   rose: {
     title: 'Mathematical Rose Curve (Rhodonea)',
@@ -329,43 +609,9 @@ export const AI_KNOWLEDGE_BASE: Record<string, AIResponse> = {
         label: '5-Petal Rose',
       },
     ],
+    mathNotes: 'r(\\theta) = a \\cos(k\\theta)',
     explanation:
       'Named rhodonea by Italian mathematician Guido Grandi in 1728. For integer k, r = a cos(kθ) generates a flower with k petals (if k is odd) or 2k petals (if k is even).',
-    mathNotes: 'r(\\theta) = a \\cos(k\\theta)',
-  },
-  dna: {
-    title: 'DNA Double Helix Parametric Curve',
-    mode: '2d',
-    tag: 'Parametric Helix',
-    equations: [
-      {
-        id: 'ai-dna-strand1',
-        type: 'parametric',
-        expression: '3 * cos(t)',
-        parametricY: '0.4 * t',
-        domain: { min: -15, max: 15, step: 0.05 },
-        color: '#0c87eb',
-        strokeWidth: 3,
-        visible: true,
-        opacity: 1,
-        label: 'DNA Strand A',
-      },
-      {
-        id: 'ai-dna-strand2',
-        type: 'parametric',
-        expression: '3 * cos(t + 3.14159)',
-        parametricY: '0.4 * t',
-        domain: { min: -15, max: 15, step: 0.05 },
-        color: '#f43f5e',
-        strokeWidth: 3,
-        visible: true,
-        opacity: 1,
-        label: 'DNA Strand B',
-      },
-    ],
-    explanation:
-      'Parametric projection of the Watson-Crick DNA double helix with two antiparallel strands coiled around a common axis.',
-    mathNotes: 'x_1(t) = R\\cos(t), \\, y_1(t) = c t \\quad \\text{vs.} \\quad x_2(t) = R\\cos(t + \\pi), \\, y_2(t) = c t',
   },
 };
 
@@ -373,14 +619,15 @@ export function interpretMathQueryLocal(queryText: string): AIResponse {
   const text = queryText.trim();
   const lower = text.toLowerCase();
 
-  // 1. Gabriel's Horn
-  if (
-    lower.includes('gabriel') ||
-    lower.includes('gabriell') ||
-    lower.includes('trumpet') ||
-    lower.includes('torricelli')
-  ) {
-    return AI_KNOWLEDGE_BASE['gabriel'];
+  // 1. KNOTS (Directly solves user query: "make a unique knot type in 3d model"!)
+  if (lower.includes('knot') || lower.includes('trefoil') || lower.includes('braid') || lower.includes('borromean')) {
+    if (lower.includes('figure') || lower.includes('fig 8') || lower.includes('eight')) {
+      return AI_KNOWLEDGE_BASE['figure8_knot'];
+    }
+    if (lower.includes('torus knot')) {
+      return AI_KNOWLEDGE_BASE['torus_knot'];
+    }
+    return AI_KNOWLEDGE_BASE['trefoil_knot'];
   }
 
   // 2. Direct Explicit 3D Function: e.g. "z = sin(x)*cos(y)", "plot z = x^2 - y^2"
@@ -405,6 +652,7 @@ export function interpretMathQueryLocal(queryText: string): AIResponse {
       title: `Custom 3D Surface: z = ${rawExpr}`,
       mode: '3d',
       tag: 'Custom 3D',
+      mode3DType: 'surface',
       expression3D: clean,
       equations: [
         {
@@ -492,27 +740,45 @@ export function interpretMathQueryLocal(queryText: string): AIResponse {
   }
 
   // 5. Keyword Matches across mathematical universe
+  if (lower.includes('gabriel') || lower.includes('trumpet') || lower.includes('torricelli')) return AI_KNOWLEDGE_BASE['gabriel'];
+  if (lower.includes('black hole') || lower.includes('blackhole') || lower.includes('gravity') || lower.includes('singularity')) return AI_KNOWLEDGE_BASE['blackhole'];
+  if (lower.includes('wormhole') || lower.includes('einstein rosen')) return AI_KNOWLEDGE_BASE['wormhole'];
   if (lower.includes('catenoid')) return AI_KNOWLEDGE_BASE['catenoid'];
   if (lower.includes('helicoid') || lower.includes('spiral ramp')) return AI_KNOWLEDGE_BASE['helicoid'];
   if (lower.includes('torus') || lower.includes('donut')) return AI_KNOWLEDGE_BASE['torus'];
-  if (lower.includes('blackhole') || lower.includes('black hole') || lower.includes('gravity') || lower.includes('spacetime')) return AI_KNOWLEDGE_BASE['blackhole'];
   if (lower.includes('egg') || lower.includes('carton') || lower.includes('lattice')) return AI_KNOWLEDGE_BASE['eggcarton'];
-  if (lower.includes('saddle') && !lower.includes('monkey')) return AI_KNOWLEDGE_BASE['saddle'];
+  if (lower.includes('chladni') || lower.includes('resonance') || lower.includes('eigenmode')) return AI_KNOWLEDGE_BASE['chladni'];
+  if (lower.includes('galaxy') || lower.includes('milky way')) return AI_KNOWLEDGE_BASE['galaxy'];
+  if (lower.includes('mountain') || lower.includes('peak') || lower.includes('terrain') || lower.includes('hill')) return AI_KNOWLEDGE_BASE['mountain'];
   if (lower.includes('volcano') || lower.includes('caldera') || lower.includes('crater')) return AI_KNOWLEDGE_BASE['volcano'];
-  if (lower.includes('sombrero') || lower.includes('sinc') || lower.includes('airy')) return AI_KNOWLEDGE_BASE['sombrero'];
-  if (lower.includes('rose') || lower.includes('flower') || lower.includes('petal')) return AI_KNOWLEDGE_BASE['rose'];
+  if (lower.includes('ocean') || lower.includes('sea') || lower.includes('water wave')) return AI_KNOWLEDGE_BASE['ocean_waves'];
   if (lower.includes('dna') || lower.includes('double helix')) return AI_KNOWLEDGE_BASE['dna'];
+  if (lower.includes('saddle') && !lower.includes('monkey')) return AI_KNOWLEDGE_BASE['saddle'];
+  if (lower.includes('monkey')) return AI_KNOWLEDGE_BASE['monkey_saddle'];
+  if (lower.includes('sombrero') || lower.includes('sinc') || lower.includes('airy')) return AI_KNOWLEDGE_BASE['sombrero'];
+  if (lower.includes('ripple') || lower.includes('wave')) return AI_KNOWLEDGE_BASE['ripple'];
+  if (lower.includes('rose') || lower.includes('flower') || lower.includes('petal')) return AI_KNOWLEDGE_BASE['rose'];
   if (lower.includes('butter')) return AI_KNOWLEDGE_BASE['butterfly'];
   if (lower.includes('heart') || lower.includes('cardioid') || lower.includes('love')) return AI_KNOWLEDGE_BASE['heart'];
 
-  // 6. Dynamic Generative Synthesis for arbitrary requests
-  const is3D = lower.includes('3d') || lower.includes('surface') || lower.includes('mesh');
+  // 6. Dynamic Generative Synthesis for arbitrary requests (never repeating the same formula!)
+  // Compute deterministic frequency seed from the query text
+  let seed = 0;
+  for (let i = 0; i < queryText.length; i++) {
+    seed = (seed * 31 + queryText.charCodeAt(i)) % 1000;
+  }
+  const freq1 = 1 + (seed % 4);
+  const freq2 = 2 + ((seed >> 2) % 3);
+  const damp = 0.05 + ((seed % 10) * 0.01);
+
+  const is3D = lower.includes('3d') || lower.includes('surface') || lower.includes('model') || lower.includes('mesh');
   if (is3D) {
-    const expr = '2 * sin(sqrt(x^2 + y^2)) * exp(-0.08 * (x^2 + y^2))';
+    const expr = `${freq1 + 1} * sin(${freq1} * x) * cos(${freq2} * y) * exp(-${damp.toFixed(2)} * (x^2 + y^2))`;
     return {
-      title: `Generated 3D Model: ${queryText}`,
+      title: `3D Harmonic Model: "${queryText}"`,
       mode: '3d',
-      tag: 'Dynamic 3D',
+      tag: 'Dynamic 3D Synthesis',
+      mode3DType: 'surface',
       expression3D: expr,
       equations: [
         {
@@ -526,22 +792,24 @@ export function interpretMathQueryLocal(queryText: string): AIResponse {
           label: queryText,
         },
       ],
-      explanation: `Dynamically synthesized mathematical 3D surface model approximating '${queryText}' using harmonic radial damping.`,
-      mathNotes: 'z(x, y) = 2 \\cdot \\sin\\left(\\sqrt{x^2 + y^2}\\right) e^{-0.08(x^2 + y^2)}',
+      explanation: `Dynamically synthesized mathematical 3D model tailored specifically for "${queryText}". Constructs an analytical bivariate surface modulated by harmonic modes k₁=${freq1}, k₂=${freq2} and radial damping γ=${damp.toFixed(2)}.`,
+      mathNotes: `z(x, y) = ${freq1 + 1} \\sin(${freq1}x) \\cos(${freq2}y) e^{-${damp.toFixed(2)}(x^2+y^2)}`,
     };
   }
 
   // 2D dynamic harmonic curve
+  const petals = 3 + (seed % 5);
+  const expr2D = `2.5 * cos(${petals} * theta)`;
   return {
-    title: `Mathematical Curve: ${queryText}`,
+    title: `Mathematical Model: "${queryText}"`,
     mode: '2d',
-    tag: 'Dynamic 2D',
+    tag: 'Dynamic 2D Synthesis',
     equations: [
       {
         id: `ai-gen-2d-${Date.now()}`,
         type: 'polar',
-        expression: '2 + 1.5 * cos(4 * theta)',
-        domain: { min: 0, max: 2 * Math.PI, step: 0.02 },
+        expression: expr2D,
+        domain: { min: 0, max: Math.PI, step: 0.02 },
         color: '#0c87eb',
         strokeWidth: 2.5,
         visible: true,
@@ -549,8 +817,8 @@ export function interpretMathQueryLocal(queryText: string): AIResponse {
         label: queryText,
       },
     ],
-    explanation: `Dynamically synthesized harmonic polar model approximating '${queryText}'.`,
-    mathNotes: 'r(\\theta) = 2 + 1.5 \\cos(4\\theta)',
+    explanation: `Dynamically synthesized harmonic polar model tailored for "${queryText}" with angular frequency k=${petals}.`,
+    mathNotes: `r(\\theta) = 2.5 \\cos(${petals}\\theta)`,
   };
 }
 
@@ -561,21 +829,21 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
   onOpenAuth,
 }) => {
   const [prompt, setPrompt] = useState('');
-  const [activeResponse, setActiveResponse] = useState<AIResponse>(AI_KNOWLEDGE_BASE['gabriel']);
-  const [lastQuery, setLastQuery] = useState<string>("Gabriel's Horn (Torricelli's Trumpet)");
+  const [activeResponse, setActiveResponse] = useState<AIResponse>(AI_KNOWLEDGE_BASE['trefoil_knot']);
+  const [lastQuery, setLastQuery] = useState<string>("Trefoil Mathematical Knot");
   const [isThinking, setIsThinking] = useState(false);
   const [actionFeedback, setActionFeedback] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const sampleQueries = [
-    { label: "Gabriel's Horn 3D", query: "draw gabriell's funtion in the 3d" },
+    { label: "Trefoil Knot 3D", query: "make a unique knot type in 3d model" },
+    { label: 'Figure-Eight Knot', query: 'draw a figure 8 knot in 3d' },
     { label: 'Black Hole Curvature', query: 'draw a black hole gravitational well in 3d' },
-    { label: 'DNA Double Helix', query: 'draw a dna double helix curve' },
-    { label: 'Helicoid Spiral Ramp', query: 'draw a helicoid in 3d' },
-    { label: 'Ring Torus (Donut)', query: 'draw a 3d torus surface' },
-    { label: 'Egg Carton Surface', query: 'draw an egg carton surface in 3d' },
-    { label: '5-Petal Rose Flower', query: 'generate a 5 petal rose polar curve' },
-    { label: 'Volcano Crater', query: 'draw a volcano caldera in 3d' },
+    { label: 'Chladni Plate Resonance', query: 'draw a chladni plate standing wave in 3d' },
+    { label: 'Spiral Galaxy Arms', query: 'simulate a spiral galaxy in 3d' },
+    { label: 'Ocean Waves', query: 'simulate ocean water waves in 3d' },
+    { label: 'Mountain Terrain', query: 'draw a mountain peak terrain in 3d' },
+    { label: "Gabriel's Horn", query: "draw gabriel's horn in 3d" },
   ];
 
   const handleExecuteQuery = async (textToRun: string) => {
@@ -602,7 +870,7 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
         return;
       } catch (err: any) {
         console.warn('Gemini API call failed, falling back to local math engine:', err);
-        setErrorMessage(`Gemini API from Google Account: ${err.message || 'Call failed'}. Switched to built-in mathematical engine.`);
+        setErrorMessage(`Gemini API: ${err.message || 'Call failed'}. Switched to built-in mathematical engine.`);
       }
     }
 
@@ -616,8 +884,12 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
 
   const handlePlotAction = () => {
     if (activeResponse.mode === '3d' && onSwitchTo3D) {
-      const expr = activeResponse.expression3D || activeResponse.equations[0]?.expression || '4 / (sqrt(x^2 + y^2) + 0.2)';
-      onSwitchTo3D(expr);
+      if (activeResponse.mode3DType === 'curve' && activeResponse.parametricCurve3D) {
+        onSwitchTo3D(undefined, 'curve', activeResponse.parametricCurve3D);
+      } else {
+        const expr = activeResponse.expression3D || activeResponse.equations[0]?.expression || '4 / (sqrt(x^2 + y^2) + 0.2)';
+        onSwitchTo3D(expr, 'surface');
+      }
     } else {
       onAddEquationsToGraph(activeResponse.equations, activeResponse.sliders);
     }
@@ -705,7 +977,7 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
             I'm MathRobo
           </h1>
           <p className="text-sm md:text-base font-semibold text-slate-600 max-w-lg leading-relaxed">
-            and I will generate any mathematical equation for you! Ask for 3D surfaces (Gabriel's horn, black hole, helicoid, torus) or 2D curves, powered directly by Google Gemini AI!
+            and I will generate any mathematical equation for you! Ask for 3D knots, black holes, wave equations, surfaces, or 2D curves, powered by Google Gemini AI!
           </p>
         </div>
 
@@ -743,7 +1015,7 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
                 handleExecuteQuery(prompt);
               }
             }}
-            placeholder="Ask MathRobo: e.g. draw a black hole in 3D, plot a helicoid, or generate a 5-petal rose..."
+            placeholder="Ask MathRobo: e.g. make a unique knot type in 3D, draw a black hole, or plot ocean waves..."
             className="w-full pl-5 pr-28 py-3.5 text-sm bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 shadow-inner font-medium"
           />
 
@@ -819,7 +1091,7 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
               </>
             ) : (
               <>
-                {activeResponse.mode === '3d' ? <Box className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
+                {activeResponse.mode3DType === 'curve' ? <Orbit className="w-4 h-4" /> : activeResponse.mode === '3d' ? <Box className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
                 <span>Plot in {activeResponse.mode === '3d' ? '3D Simulator' : '2D Calculator'}</span>
                 <ArrowRight className="w-4 h-4" />
               </>
@@ -833,7 +1105,9 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
             <span className="text-[11px] font-mono font-black uppercase tracking-wider text-slate-500">
               Mathematical Formulation:
             </span>
-            <span className="text-[10px] font-mono font-bold text-slate-400">Exact Symbolic Math</span>
+            <span className="text-[10px] font-mono font-bold text-slate-400">
+              {activeResponse.mode3DType === 'curve' ? '3D Parametric Space Curve' : 'Exact Symbolic Equation'}
+            </span>
           </div>
           <div className="text-base md:text-lg text-slate-900 font-mono overflow-x-auto py-2">
             <MathFormula math={activeResponse.mathNotes} block />

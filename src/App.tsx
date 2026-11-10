@@ -51,6 +51,8 @@ export function App() {
   const [sliders, setSliders] = useState<SliderVar[]>([]);
   const [viewport, setViewport] = useState<Viewport2D>(INITIAL_VIEWPORT);
   const [expression3D, setExpression3D] = useState<string>('2.5 * sin(sqrt(x^2 + y^2) - t)');
+  const [mode3D, setMode3D] = useState<'surface' | 'curve'>('surface');
+  const [curve3D, setCurve3D] = useState<{ x: string; y: string; z: string } | undefined>(undefined);
 
   // Overlay image for Image-to-Equation comparison on graph
   const [overlayImage, setOverlayImage] = useState<HTMLImageElement | null>(null);
@@ -232,15 +234,21 @@ export function App() {
 
         {/* TAB 3: 3D Simulator (Module 4) */}
         {activeTab === 'simulator-3d' && (
-          <Simulator3DWorkspace initialExpression={expression3D} />
+          <Simulator3DWorkspace
+            initialExpression={expression3D}
+            initialMode={mode3D}
+            initialParametricCurve={curve3D}
+          />
         )}
 
         {/* TAB 4: AI Math Assistant (Module 5) */}
         {activeTab === 'ai-assistant' && (
           <AIAssistantWorkspace
             onAddEquationsToGraph={handleEquationsFromAI}
-            onSwitchTo3D={(expr) => {
+            onSwitchTo3D={(expr, mode = 'surface', curve) => {
               if (expr) setExpression3D(expr);
+              setMode3D(mode);
+              if (curve) setCurve3D(curve);
               setActiveTab('simulator-3d');
             }}
             currentUser={currentUser}
