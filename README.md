@@ -2,10 +2,30 @@
 ### AI-Powered Equation Generator, Image-to-Equation Converter & Mathematical Graph Simulator
 
 <p align="center">
-  <img src="assets/preview.jpg" alt="EQUATIONX Preview" width="100%" style="border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.12);" />
+  <a href="https://equation-x.vercel.app/" target="_blank">
+    <img src="https://img.shields.io/badge/Live%20Demo-equation--x.vercel.app-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Live Demo on Vercel" />
+  </a>
+  <a href="https://github.com/gourab354/EquationX" target="_blank">
+    <img src="https://img.shields.io/badge/GitHub-EquationX-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Repo" />
+  </a>
+</p>
+
+> 🚀 **Live Demo:** [https://equation-x.vercel.app/](https://equation-x.vercel.app/)
+
+<p align="center">
+  <a href="https://equation-x.vercel.app/" target="_blank">
+    <img src="assets/preview.jpg" alt="EQUATIONX Preview" width="100%" style="border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.12);" />
+  </a>
 </p>
 
 **EQUATIONX** is a next-generation browser-based mathematical computing and visualization platform inspired by Desmos, featuring an **Image-to-Equation Conversion Pipeline**, a real-time **2D & 3D Graphing Calculator**, dynamic **Physics & Simulation Engine**, and an **AI Mathematical Assistant**.
+
+---
+
+## 🌐 Live Demo & Deployment
+
+EQUATIONX is live and hosted on Vercel:
+👉 **[https://equation-x.vercel.app/](https://equation-x.vercel.app/)**
 
 ---
 
