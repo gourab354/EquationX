@@ -6,6 +6,7 @@ interface GraphCanvas3DProps {
   expression: string; // e.g. "sin(sqrt(x^2 + y^2) - t)"
   mode: 'surface' | 'curve';
   parametricCurve?: { x: string; y: string; z: string };
+  tubeRadius?: number; // string / tube radius
   sliders: Record<string, number>;
   gridResolution?: number;
   colormap: 'viridis' | 'cyan-purple' | 'sunset' | 'emerald';
@@ -13,10 +14,39 @@ interface GraphCanvas3DProps {
   scale?: number;
 }
 
+class Parametric3DPath extends THREE.Curve<THREE.Vector3> {
+  evalX: any;
+  evalY: any;
+  evalZ: any;
+  sliders: Record<string, number>;
+  scale: number;
+
+  constructor(evalX: any, evalY: any, evalZ: any, sliders: Record<string, number>, scale: number) {
+    super();
+    this.evalX = evalX;
+    this.evalY = evalY;
+    this.evalZ = evalZ;
+    this.sliders = sliders;
+    this.scale = scale;
+  }
+
+  getPoint(tFraction: number, optionalTarget = new THREE.Vector3()) {
+    // Parameter t traverses one complete period [0, 2*PI]
+    const t = tFraction * 2 * Math.PI;
+    const scope = { ...this.sliders, t };
+    const x = (this.evalX.evaluate(scope) || 0) * this.scale;
+    const y = (this.evalY.evaluate(scope) || 0) * this.scale;
+    const z = (this.evalZ.evaluate(scope) || 0) * this.scale;
+    // In Three.js: X horizontal, Y is UP, Z is depth
+    return optionalTarget.set(x, z, y);
+  }
+}
+
 export const GraphCanvas3D: React.FC<GraphCanvas3DProps> = ({
   expression,
   mode = 'surface',
   parametricCurve,
+  tubeRadius = 0.35,
   sliders,
   gridResolution = 60,
   colormap = 'viridis',
@@ -80,11 +110,11 @@ export const GraphCanvas3D: React.FC<GraphCanvas3DProps> = ({
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
     scene.add(ambientLight);
 
-    const dirLight1 = new THREE.DirectionalLight(0xfff7cc, 1.4);
+    const dirLight1 = new THREE.DirectionalLight(0xfff7cc, 1.5);
     dirLight1.position.set(15, 25, 20);
     scene.add(dirLight1);
 
-    const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.8);
+    const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.9);
     dirLight2.position.set(-15, -10, -20);
     scene.add(dirLight2);
 
@@ -131,7 +161,7 @@ export const GraphCanvas3D: React.FC<GraphCanvas3DProps> = ({
     };
   }, []);
 
-  // Update Surface / Curve geometry when equation or sliders change
+  // Update Surface / 3D Tube geometry when equation, curve, or radius changes
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
@@ -227,43 +257,51 @@ export const GraphCanvas3D: React.FC<GraphCanvas3DProps> = ({
         scene.add(mesh);
         meshRef.current = mesh;
       } else if (mode === 'curve' && parametricCurve) {
-        // 3D Parametric Curve (e.g. Torus knot or Lorenz attractor)
+        // 3D Parametric Space Knot / Curve rendered as a solid 3D Tube with adjustable radius!
         const evalX = compileExpression(parametricCurve.x);
         const evalY = compileExpression(parametricCurve.y);
         const evalZ = compileExpression(parametricCurve.z);
 
-        const curvePts: THREE.Vector3[] = [];
-        const curveCols: number[] = [];
-        const steps = 600;
+        const path = new Parametric3DPath(evalX, evalY, evalZ, sliders, scale);
+        const tubularSegments = 300;
+        // User adjustable string/tube radius (either from slider or prop)
+        const radius = Math.max(0.04, tubeRadius || sliders['r'] || 0.35);
+        const radialSegments = 16;
+        const closed = true;
 
-        for (let i = 0; i <= steps; i++) {
-          const t = (i / steps) * 4 * Math.PI;
-          const scope = { ...sliders, t };
-          const x = evalX.evaluate(scope) || 0;
-          const y = evalY.evaluate(scope) || 0;
-          const z = evalZ.evaluate(scope) || 0;
+        const geom = new THREE.TubeGeometry(path, tubularSegments, radius, radialSegments, closed);
 
-          curvePts.push(new THREE.Vector3(x * scale, z * scale, y * scale));
-          const col = getColor(i / steps);
-          curveCols.push(col.r, col.g, col.b);
+        // Color along the 3D tube length with smooth colormap transition!
+        const count = geom.attributes.position.count;
+        const colors: number[] = [];
+        const verticesPerRing = radialSegments + 1;
+
+        for (let i = 0; i < count; i++) {
+          const ringIndex = Math.floor(i / verticesPerRing);
+          const tFraction = ringIndex / tubularSegments;
+          const col = getColor(tFraction);
+          colors.push(col.r, col.g, col.b);
         }
 
-        const geom = new THREE.BufferGeometry().setFromPoints(curvePts);
-        geom.setAttribute('color', new THREE.Float32BufferAttribute(curveCols, 3));
+        geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        geom.computeVertexNormals();
 
-        const mat = new THREE.LineBasicMaterial({
+        const mat = new THREE.MeshStandardMaterial({
           vertexColors: true,
-          linewidth: 3,
+          roughness: 0.25,
+          metalness: 0.3,
+          wireframe: isWireframe,
+          side: THREE.DoubleSide,
         });
 
-        const line = new THREE.Line(geom, mat);
-        scene.add(line);
-        meshRef.current = line;
+        const tubeMesh = new THREE.Mesh(geom, mat);
+        scene.add(tubeMesh);
+        meshRef.current = tubeMesh;
       }
     } catch (err) {
-      console.error('3D surface error:', err);
+      console.error('3D geometry error:', err);
     }
-  }, [expression, mode, parametricCurve, sliders, gridResolution, colormap, isWireframe, scale]);
+  }, [expression, mode, parametricCurve, tubeRadius, sliders, gridResolution, colormap, isWireframe, scale]);
 
   // Orbit drag handlers
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -278,15 +316,15 @@ export const GraphCanvas3D: React.FC<GraphCanvas3DProps> = ({
     const dy = e.clientY - prevMouseRef.current.y;
     prevMouseRef.current = { x: e.clientX, y: e.clientY };
 
-    const sph = sphericalRef.current;
-    sph.theta -= dx * 0.008;
-    sph.phi = Math.max(0.1, Math.min(Math.PI - 0.1, sph.phi - dy * 0.008));
+    const speed = 0.006;
+    sphericalRef.current.theta -= dx * speed;
+    sphericalRef.current.phi = Math.max(0.1, Math.min(Math.PI - 0.1, sphericalRef.current.phi - dy * speed));
 
-    const camera = cameraRef.current;
-    camera.position.x = sph.radius * Math.sin(sph.phi) * Math.sin(sph.theta);
-    camera.position.y = sph.radius * Math.cos(sph.phi);
-    camera.position.z = sph.radius * Math.sin(sph.phi) * Math.cos(sph.theta);
-    camera.lookAt(0, 0, 0);
+    const { radius, theta, phi } = sphericalRef.current;
+    cameraRef.current.position.x = radius * Math.sin(phi) * Math.sin(theta);
+    cameraRef.current.position.y = radius * Math.cos(phi);
+    cameraRef.current.position.z = radius * Math.sin(phi) * Math.cos(theta);
+    cameraRef.current.lookAt(0, 0, 0);
   };
 
   const handleMouseUp = () => {
@@ -294,17 +332,15 @@ export const GraphCanvas3D: React.FC<GraphCanvas3DProps> = ({
   };
 
   const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
     if (!cameraRef.current) return;
+    const zoomSpeed = 0.02;
+    sphericalRef.current.radius = Math.max(5, Math.min(100, sphericalRef.current.radius + e.deltaY * zoomSpeed));
 
-    const sph = sphericalRef.current;
-    sph.radius = Math.max(6, Math.min(80, sph.radius + (e.deltaY > 0 ? 2 : -2)));
-
-    const camera = cameraRef.current;
-    camera.position.x = sph.radius * Math.sin(sph.phi) * Math.sin(sph.theta);
-    camera.position.y = sph.radius * Math.cos(sph.phi);
-    camera.position.z = sph.radius * Math.sin(sph.phi) * Math.cos(sph.theta);
-    camera.lookAt(0, 0, 0);
+    const { radius, theta, phi } = sphericalRef.current;
+    cameraRef.current.position.x = radius * Math.sin(phi) * Math.sin(theta);
+    cameraRef.current.position.y = radius * Math.cos(phi);
+    cameraRef.current.position.z = radius * Math.sin(phi) * Math.cos(theta);
+    cameraRef.current.lookAt(0, 0, 0);
   };
 
   return (
@@ -319,4 +355,3 @@ export const GraphCanvas3D: React.FC<GraphCanvas3DProps> = ({
     />
   );
 };
-

@@ -20,6 +20,7 @@ export const Simulator3DWorkspace: React.FC<Simulator3DWorkspaceProps> = ({
     initialExpression || '2.5 * sin(sqrt(x^2 + y^2) - t)'
   );
   const [mode, setMode] = useState<'surface' | 'curve'>(initialMode);
+  const [tubeRadius, setTubeRadius] = useState<number>(0.35); // Adjustable String / Tube Radius!
   const [parametricCurve, setParametricCurve] = useState<{ x: string; y: string; z: string }>(
     initialParametricCurve || {
       x: 'sin(t) + 2 * sin(2 * t)',
@@ -106,6 +107,11 @@ export const Simulator3DWorkspace: React.FC<Simulator3DWorkspaceProps> = ({
 
   const PRESET_SURFACES = [
     {
+      name: 'Trefoil Seifert Knot Surface',
+      expr: '2.5 * sin(3 * atan2(y, x) - sqrt(x^2 + y^2)) * exp(-0.04 * (x^2 + y^2))',
+      desc: 'Topological orientable Seifert surface bounded by a trefoil knot',
+    },
+    {
       name: "Gabriel's Horn (Trumpet)",
       expr: '4 / (sqrt(x^2 + y^2) + 0.2)',
       desc: 'Torricelli trumpet with finite volume & infinite area',
@@ -114,11 +120,6 @@ export const Simulator3DWorkspace: React.FC<Simulator3DWorkspaceProps> = ({
       name: 'Black Hole Spacetime Funnel',
       expr: '-6 / (sqrt(x^2 + y^2) + 0.3)',
       desc: 'Gravitational potential curvature well',
-    },
-    {
-      name: 'Circular Wave Ripple',
-      expr: '2.5 * sin(sqrt(x^2 + y^2) - t)',
-      desc: 'Dynamic propagating circular ripples',
     },
     {
       name: 'Helicoid Spiral Ramp',
@@ -134,6 +135,11 @@ export const Simulator3DWorkspace: React.FC<Simulator3DWorkspaceProps> = ({
       name: 'Hyperbolic Paraboloid (Saddle)',
       expr: '(x^2 - y^2) / a',
       desc: 'Classic saddle surface with opposing principal curvatures',
+    },
+    {
+      name: 'Circular Wave Ripple',
+      expr: '2.5 * sin(sqrt(x^2 + y^2) - t)',
+      desc: 'Dynamic propagating circular ripples',
     },
     {
       name: 'Monkey Saddle',
@@ -160,7 +166,7 @@ export const Simulator3DWorkspace: React.FC<Simulator3DWorkspaceProps> = ({
   const PRESET_KNOTS = [
     {
       name: 'Trefoil Knot (3_1 Knot)',
-      desc: 'The simplest non-trivial mathematical knot',
+      desc: 'The simplest non-trivial mathematical knot in 3D',
       curve: {
         x: 'sin(t) + 2 * sin(2 * t)',
         y: 'cos(t) - 2 * cos(2 * t)',
@@ -168,17 +174,17 @@ export const Simulator3DWorkspace: React.FC<Simulator3DWorkspaceProps> = ({
       },
     },
     {
-      name: 'Torus Knot (2, 3)',
+      name: 'Torus Knot T(2, 3)',
       desc: 'Winds 2 times longitudinally and 3 times meridionally',
       curve: {
-        x: '(2 + cos(3 * t)) * cos(2 * t)',
-        y: '(2 + cos(3 * t)) * sin(2 * t)',
+        x: '(2.5 + cos(3 * t)) * cos(2 * t)',
+        y: '(2.5 + cos(3 * t)) * sin(2 * t)',
         z: 'sin(3 * t)',
       },
     },
     {
       name: 'Figure-Eight Knot (4_1 Knot)',
-      desc: 'Unique knot with 4 crossings',
+      desc: 'Unique amphicheiral knot with 4 crossings',
       curve: {
         x: '(2 + cos(2 * t)) * cos(3 * t)',
         y: '(2 + cos(2 * t)) * sin(3 * t)',
@@ -186,7 +192,7 @@ export const Simulator3DWorkspace: React.FC<Simulator3DWorkspaceProps> = ({
       },
     },
     {
-      name: 'Cinquefoil Knot (5_1 Knot)',
+      name: 'Cinquefoil Star Knot (5_1 Knot)',
       desc: 'Symmetric 5-crossing star knot',
       curve: {
         x: '(3 + cos(5 * t)) * cos(2 * t)',
@@ -222,6 +228,7 @@ export const Simulator3DWorkspace: React.FC<Simulator3DWorkspaceProps> = ({
           expression={expression}
           mode={mode}
           parametricCurve={parametricCurve}
+          tubeRadius={tubeRadius}
           sliders={sliderScope}
           gridResolution={resolution}
           colormap={colormap}
@@ -236,7 +243,7 @@ export const Simulator3DWorkspace: React.FC<Simulator3DWorkspaceProps> = ({
             <span>Interactive 3D Navigation</span>
           </div>
           <div className="text-[11px] text-slate-500">
-            • Drag to rotate camera • Scroll to zoom • {mode === 'curve' ? '3D Space Knot / Curve' : '3D Explicit Surface'}
+            • Drag to rotate camera • Scroll to zoom • {mode === 'curve' ? `3D Solid Knot Tube (r = ${tubeRadius.toFixed(2)})` : '3D Bivariate Surface'}
           </div>
         </div>
       </div>
@@ -293,7 +300,7 @@ export const Simulator3DWorkspace: React.FC<Simulator3DWorkspaceProps> = ({
             </div>
           </div>
         ) : (
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
               <Orbit className="w-4 h-4 text-amber-500" />
               Parametric 3D Knot / Space Curve
@@ -306,7 +313,7 @@ export const Simulator3DWorkspace: React.FC<Simulator3DWorkspaceProps> = ({
                   type="text"
                   value={parametricCurve.x}
                   onChange={(e) => setParametricCurve(prev => ({ ...prev, x: e.target.value }))}
-                  className="w-full pl-12 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-yellow-400"
+                  className="w-full pl-12 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-yellow-400 font-medium"
                 />
               </div>
               <div className="relative">
@@ -315,7 +322,7 @@ export const Simulator3DWorkspace: React.FC<Simulator3DWorkspaceProps> = ({
                   type="text"
                   value={parametricCurve.y}
                   onChange={(e) => setParametricCurve(prev => ({ ...prev, y: e.target.value }))}
-                  className="w-full pl-12 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-yellow-400"
+                  className="w-full pl-12 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-yellow-400 font-medium"
                 />
               </div>
               <div className="relative">
@@ -324,8 +331,38 @@ export const Simulator3DWorkspace: React.FC<Simulator3DWorkspaceProps> = ({
                   type="text"
                   value={parametricCurve.z}
                   onChange={(e) => setParametricCurve(prev => ({ ...prev, z: e.target.value }))}
-                  className="w-full pl-12 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-yellow-400"
+                  className="w-full pl-12 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-yellow-400 font-medium"
                 />
+              </div>
+            </div>
+
+            {/* String / Tube Radius Control */}
+            <div className="space-y-2 p-3 bg-white rounded-2xl border border-slate-200 shadow-xs">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                  <Orbit className="w-3.5 h-3.5 text-amber-500" />
+                  <span>String / Tube Radius (Thickness):</span>
+                </span>
+                <span className="font-mono font-bold text-amber-800 bg-[#FFF9C4] px-2 py-0.5 rounded-lg border border-yellow-300">
+                  r = {tubeRadius.toFixed(2)}
+                </span>
+              </div>
+
+              <input
+                type="range"
+                min={0.05}
+                max={1.0}
+                step={0.01}
+                value={tubeRadius}
+                onChange={(e) => setTubeRadius(parseFloat(e.target.value))}
+                className="w-full accent-yellow-400 h-2 bg-slate-100 rounded-lg cursor-pointer"
+              />
+
+              <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium pt-0.5">
+                <button onClick={() => setTubeRadius(0.1)} className="hover:text-slate-900 cursor-pointer">Thin (0.1)</button>
+                <button onClick={() => setTubeRadius(0.25)} className="hover:text-slate-900 cursor-pointer">String (0.25)</button>
+                <button onClick={() => setTubeRadius(0.4)} className="hover:text-slate-900 cursor-pointer">Rope (0.4)</button>
+                <button onClick={() => setTubeRadius(0.7)} className="hover:text-slate-900 cursor-pointer">Pipe (0.7)</button>
               </div>
             </div>
           </div>
@@ -381,20 +418,20 @@ export const Simulator3DWorkspace: React.FC<Simulator3DWorkspaceProps> = ({
             </button>
           </div>
 
-          {mode === 'surface' && (
-            <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 cursor-pointer select-none font-medium text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={isWireframe}
-                  onChange={(e) => setIsWireframe(e.target.checked)}
-                  className="rounded accent-yellow-400"
-                />
-                <span>Render Wireframe Mesh</span>
-              </label>
+          <div className="flex items-center justify-between pt-1">
+            <label className="flex items-center gap-2 cursor-pointer select-none font-medium text-slate-700">
+              <input
+                type="checkbox"
+                checked={isWireframe}
+                onChange={(e) => setIsWireframe(e.target.checked)}
+                className="rounded accent-yellow-400"
+              />
+              <span>Render Wireframe Mesh</span>
+            </label>
+            {mode === 'surface' && (
               <span className="text-[10px] text-slate-400 font-mono">Grid: {resolution}×{resolution}</span>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Dynamic Sliders */}
