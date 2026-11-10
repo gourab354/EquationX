@@ -6,3 +6,4 @@ export interface GoogleUser {
   apiKey: string;
   isLoggedIn: boolean;
 }
+

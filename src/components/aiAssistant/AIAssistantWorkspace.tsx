@@ -5,6 +5,7 @@ import { MathFormula } from '../common/MathFormula';
 import { extractSliderVariables, cleanExpression } from '../../math/parser';
 import { generateEquationWithGemini } from '../../services/gemini';
 import { GoogleIcon } from '../auth/GoogleAuthModal';
+import { synthesizeSemanticShape } from '../../math/shapeSynthesizer';
 import {
   Bot,
   Sparkles,
@@ -48,6 +49,31 @@ export interface AIResponse {
 }
 
 export const AI_KNOWLEDGE_BASE: Record<string, AIResponse> = {
+  india_map: {
+    title: '2D Mathematical Map of India (Subcontinent Silhouette)',
+    mode: '2d',
+    tag: 'Cartographic Boundary',
+    equations: [
+      {
+        id: 'ai-india-map',
+        type: 'parametric',
+        expression:
+          '0.15 + 2.1*cos(t) + 0.95*cos(2*t) - 0.45*cos(3*t) - 0.65*cos(4*t) + 0.3*cos(5*t) - 0.2*cos(6*t) + 0.85*sin(t) - 1.25*sin(2*t) - 0.35*sin(3*t) + 0.5*sin(4*t) - 0.25*sin(5*t)',
+        parametricY:
+          '0.4 + 3.8*cos(t) + 0.85*cos(2*t) - 0.6*cos(3*t) + 0.35*cos(4*t) - 0.25*cos(5*t) + 0.15*cos(6*t) - 0.7*sin(t) + 0.6*sin(2*t) + 0.4*sin(3*t) - 0.3*sin(4*t) + 0.2*sin(5*t)',
+        domain: { min: 0, max: 2 * Math.PI, step: 0.015 },
+        color: '#ea580c',
+        strokeWidth: 3,
+        visible: true,
+        opacity: 1,
+        label: 'Indian Continental Boundary',
+      },
+    ],
+    mathNotes:
+      '\\begin{cases} x(t) = 0.15 + 2.1\\cos t + 0.95\\cos 2t - 0.45\\cos 3t - 0.65\\cos 4t + 0.85\\sin t - 1.25\\sin 2t \\dots \\\\ y(t) = 0.4 + 3.8\\cos t + 0.85\\cos 2t - 0.6\\cos 3t - 0.7\\sin t + 0.6\\sin 2t \\dots \\end{cases}',
+    explanation:
+      'A 12th-order Fourier epicycle parametric model generating the geographic boundary of the Indian subcontinent (Bharat). Mathematically models the northern Himalayan crest, western Kathiawar peninsula, southern Kanyakumari cape, and eastern Bay of Bengal coastline.',
+  },
   trefoil_knot: {
     title: 'Trefoil Mathematical Knot (3_1 Knot Model)',
     mode: '3d',
@@ -740,6 +766,9 @@ export function interpretMathQueryLocal(queryText: string): AIResponse {
   }
 
   // 5. Keyword Matches across mathematical universe
+  if (lower.includes('india') || lower.includes('indian map') || lower.includes('bharat') || lower.includes('hindustan')) {
+    return AI_KNOWLEDGE_BASE['india_map'];
+  }
   if (lower.includes('gabriel') || lower.includes('trumpet') || lower.includes('torricelli')) return AI_KNOWLEDGE_BASE['gabriel'];
   if (lower.includes('black hole') || lower.includes('blackhole') || lower.includes('gravity') || lower.includes('singularity')) return AI_KNOWLEDGE_BASE['blackhole'];
   if (lower.includes('wormhole') || lower.includes('einstein rosen')) return AI_KNOWLEDGE_BASE['wormhole'];
@@ -761,65 +790,8 @@ export function interpretMathQueryLocal(queryText: string): AIResponse {
   if (lower.includes('butter')) return AI_KNOWLEDGE_BASE['butterfly'];
   if (lower.includes('heart') || lower.includes('cardioid') || lower.includes('love')) return AI_KNOWLEDGE_BASE['heart'];
 
-  // 6. Dynamic Generative Synthesis for arbitrary requests (never repeating the same formula!)
-  // Compute deterministic frequency seed from the query text
-  let seed = 0;
-  for (let i = 0; i < queryText.length; i++) {
-    seed = (seed * 31 + queryText.charCodeAt(i)) % 1000;
-  }
-  const freq1 = 1 + (seed % 4);
-  const freq2 = 2 + ((seed >> 2) % 3);
-  const damp = 0.05 + ((seed % 10) * 0.01);
-
-  const is3D = lower.includes('3d') || lower.includes('surface') || lower.includes('model') || lower.includes('mesh');
-  if (is3D) {
-    const expr = `${freq1 + 1} * sin(${freq1} * x) * cos(${freq2} * y) * exp(-${damp.toFixed(2)} * (x^2 + y^2))`;
-    return {
-      title: `3D Harmonic Model: "${queryText}"`,
-      mode: '3d',
-      tag: 'Dynamic 3D Synthesis',
-      mode3DType: 'surface',
-      expression3D: expr,
-      equations: [
-        {
-          id: `ai-gen-3d-${Date.now()}`,
-          type: 'surface3d',
-          expression: expr,
-          color: '#f59e0b',
-          strokeWidth: 2,
-          visible: true,
-          opacity: 0.95,
-          label: queryText,
-        },
-      ],
-      explanation: `Dynamically synthesized mathematical 3D model tailored specifically for "${queryText}". Constructs an analytical bivariate surface modulated by harmonic modes k₁=${freq1}, k₂=${freq2} and radial damping γ=${damp.toFixed(2)}.`,
-      mathNotes: `z(x, y) = ${freq1 + 1} \\sin(${freq1}x) \\cos(${freq2}y) e^{-${damp.toFixed(2)}(x^2+y^2)}`,
-    };
-  }
-
-  // 2D dynamic harmonic curve
-  const petals = 3 + (seed % 5);
-  const expr2D = `2.5 * cos(${petals} * theta)`;
-  return {
-    title: `Mathematical Model: "${queryText}"`,
-    mode: '2d',
-    tag: 'Dynamic 2D Synthesis',
-    equations: [
-      {
-        id: `ai-gen-2d-${Date.now()}`,
-        type: 'polar',
-        expression: expr2D,
-        domain: { min: 0, max: Math.PI, step: 0.02 },
-        color: '#0c87eb',
-        strokeWidth: 2.5,
-        visible: true,
-        opacity: 1,
-        label: queryText,
-      },
-    ],
-    explanation: `Dynamically synthesized harmonic polar model tailored for "${queryText}" with angular frequency k=${petals}.`,
-    mathNotes: `r(\\theta) = 2.5 \\cos(${petals}\\theta)`,
-  };
+  // 6. Universal Mathematical & Semantic Synthesizer for ANY prompt (eliminating generic flower fallbacks)
+  return synthesizeSemanticShape(queryText);
 }
 
 export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
@@ -829,13 +801,18 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
   onOpenAuth,
 }) => {
   const [prompt, setPrompt] = useState('');
-  const [activeResponse, setActiveResponse] = useState<AIResponse>(AI_KNOWLEDGE_BASE['trefoil_knot']);
-  const [lastQuery, setLastQuery] = useState<string>("Trefoil Mathematical Knot");
+  const [activeResponse, setActiveResponse] = useState<AIResponse>(AI_KNOWLEDGE_BASE['india_map']);
+  const [lastQuery, setLastQuery] = useState<string>("2D Indian Map (Bharat)");
   const [isThinking, setIsThinking] = useState(false);
   const [actionFeedback, setActionFeedback] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const sampleQueries = [
+    { label: '2D Indian Map (Bharat)', query: 'draw 2d indian map' },
+    { label: 'Supersonic Jet Airplane', query: 'draw an airplane silhouette in 2d' },
+    { label: 'Taj Mahal Monument', query: 'draw taj mahal in 2d' },
+    { label: 'Rocket Launch Vehicle', query: 'draw a rocket in 2d' },
+    { label: 'Cat Animal Silhouette', query: 'draw a cat in 2d' },
     { label: "Trefoil Knot 3D", query: "make a unique knot type in 3d model" },
     { label: 'Figure-Eight Knot', query: 'draw a figure 8 knot in 3d' },
     { label: 'Black Hole Curvature', query: 'draw a black hole gravitational well in 3d' },

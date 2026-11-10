@@ -99,7 +99,13 @@ export function App() {
 
   // Callback when AI Assistant synthesizes equations
   const handleEquationsFromAI = (newEqs: Equation[], newSliders?: SliderVar[]) => {
-    setEquations((prev) => [...prev, ...newEqs]);
+    setEquations((prev) => {
+      const isOnlyDefault =
+        prev.length === 2 &&
+        prev.some((e) => e.id === 'eq-init-1') &&
+        prev.some((e) => e.id === 'eq-init-2');
+      return isOnlyDefault ? newEqs : [...prev, ...newEqs];
+    });
     if (newSliders) {
       setSliders((prev) => {
         const existing = new Set(prev.map((s) => s.variable));
